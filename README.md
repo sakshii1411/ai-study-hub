@@ -1,89 +1,138 @@
-# AI Study Hub
+# 🧠 AI Study Hub
 
-An AI-powered study platform that generates notes, flashcards, MCQs, Q&A answers, and visualizations from your PDFs and notes.
+> Your all-in-one AI-powered study companion — upload notes, generate summaries, flashcards, MCQs, diagrams, and more.
 
-## Features
+**Live Demo → [ai-study-hub-psi.vercel.app](https://ai-study-hub-psi.vercel.app/)**
 
-- **Notes Maker** — Generate summary, detailed, exam-focused, or flashcard notes from PDFs
-- **Q&A Assistant** — Ask questions answered strictly from your uploaded material
-- **Theory Memorizer** — Generate mnemonics and mind maps
-- **Flashcard Game** — Interactive flip-card study sessions with PDF export
-- **MCQ Generator** — Auto-generated multiple choice quizzes from your docs
-- **Subjective Practice** — Long-form answer practice with AI evaluation
-- **Theory to Visual** — Convert concepts into SVG diagrams (flowcharts, mind maps, timelines)
-- **AI Tutor** — Real-time voice AI tutor
+---
 
-## PDF Pipeline
+## ✨ Features
 
-The app uses a **3-stage hybrid extraction pipeline**:
+| Feature | Description |
+|---|---|
+| 📝 **Notes Maker** | Upload a PDF/DOCX and get Summary, Detailed, Exam-Focused, or Flashcard notes |
+| ❓ **Q&A Assistant** | Ask questions about your study material — answers grounded strictly in your doc |
+| 🃏 **Flashcard Game** | Auto-generate interactive Q&A flashcards from any file or topic |
+| 📊 **MCQ Generator** | Generate multiple-choice questions from your notes or a topic |
+| ✍️ **Subjective Practice** | Get open-ended exam questions with model answers |
+| 🎨 **Theory to Visual** | Convert any concept into Flowcharts, Mind Maps, Timelines, Cycle Diagrams, Hierarchies, and Comparisons |
+| 🤖 **AI Tutor** | Chat with an AI tutor about any subject |
+| 📅 **Study Planner** | Create AI-generated study plans with daily schedules |
 
-1. **pdfjs-dist** — extracts text layers from regular PDFs
-2. **Intelligent quality scoring** — detects if extraction was good (word ratio, character diversity, sentence structure)
-3. **Tesseract.js OCR fallback** — automatically triggered for scanned/image-based PDFs
+---
 
-Supported file types: **PDF, TXT, DOCX, MD** (up to 15 MB)
+## 🔧 PDF Extraction Pipeline
 
-## Setup
+Handles both digital and scanned PDFs automatically — no manual pasting needed.
 
-### 1. Install dependencies
+```
+PDF uploaded
+    │
+    ▼
+[1] pdfjs text layer      ← fast, works on digital PDFs
+    │ (low quality?)
+    ▼
+[2] Vision AI (OpenRouter) ← free vision models, handles scanned PDFs
+    │ (unavailable?)
+    ▼
+[3] Tesseract.js OCR      ← fully offline browser OCR, final fallback
+    │ (all fail?)
+    ▼
+User prompted to paste manually
+```
+
+---
+
+## 🚀 Getting Started
+
+### Prerequisites
+- Node.js 18+
+- Free API keys (see below)
+
+### Installation
 
 ```bash
+git clone https://github.com/sakshii1411/ai-study-hub.git
+cd ai-study-hub
 npm install
 ```
 
-### 2. Configure API keys
+### Environment Variables
 
-Copy `.env.example` to `.env` and fill in at least one AI provider key:
+Create a `.env` file in the root:
 
-```bash
-cp .env.example .env
+```env
+VITE_GROQ_API_KEY=your_groq_key
+VITE_OPENROUTER_API_KEY=your_openrouter_key
+VITE_NVIDIA_API_KEY=your_nvidia_key
 ```
 
-You need **at least one** of:
-- `VITE_GROQ_API_KEY` — get free at https://console.groq.com (recommended, fastest)
-- `VITE_OPENROUTER_API_KEY` — get at https://openrouter.ai
-- `VITE_NVIDIA_API_KEY` — get at https://build.nvidia.com
+Get free keys:
+- **Groq** (fastest) → https://console.groq.com
+- **OpenRouter** (Vision AI + fallback models) → https://openrouter.ai
+- **NVIDIA NIM** (fallback) → https://build.nvidia.com
 
-Optional (for AI Tutor voice feature):
-- `VITE_VAPI_API_KEY`
-
-### 3. Run locally
+### Run Locally
 
 ```bash
 npm run dev
 ```
 
-Open http://localhost:8080
+Open [http://localhost:8080](http://localhost:8080)
 
-### 4. Build for production
+---
 
-```bash
-npm run build
+## 🛠️ Tech Stack
+
+- **Frontend** — React 18 + TypeScript + Vite
+- **Styling** — Tailwind CSS + shadcn/ui
+- **AI** — Groq (Llama 3.3 70B) → OpenRouter → NVIDIA NIM
+- **PDF Parsing** — pdfjs-dist + Vision AI + Tesseract.js OCR
+- **Diagrams** — Custom SVG engine with dynamic layouts
+- **Routing** — React Router v6
+- **Deployment** — Vercel
+
+---
+
+## 📁 Project Structure
+
+```
+src/
+├── components/
+│   ├── PDFUploader.tsx      # Drag-and-drop uploader with OCR progress
+│   └── ui/                  # shadcn/ui components
+├── lib/
+│   ├── aiClient.ts          # Multi-provider AI with fallback chain
+│   └── extractFileText.ts   # 3-stage PDF extraction pipeline
+└── pages/
+    ├── NotesMaker.tsx
+    ├── QnAComponent.tsx
+    ├── FlashCardPage.tsx
+    ├── MCQPage.tsx
+    ├── SubjectivePage.tsx
+    ├── ImageGenerator.tsx   # Theory to Visual diagrams
+    ├── AITutorPage.tsx
+    └── Dashboard.tsx
 ```
 
-## Deploy on Render (Static Site)
+---
 
-1. Push this project to GitHub
-2. Go to https://render.com → New → Static Site
-3. Connect your GitHub repo
-4. Set:
-   - **Build Command:** `npm install && npm run build`
-   - **Publish Directory:** `dist`
-5. Add environment variables (same as `.env`) in the Render dashboard
-6. Deploy
+## 📦 Deploying to Vercel
 
-## Environment Variables
+[![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https://github.com/sakshii1411/ai-study-hub)
 
-| Variable | Required | Description |
-|---|---|---|
-| `VITE_GROQ_API_KEY` | Recommended | Groq LLaMA API (fastest, free tier) |
-| `VITE_OPENROUTER_API_KEY` | Optional | OpenRouter multi-model API |
-| `VITE_NVIDIA_API_KEY` | Optional | NVIDIA NIM API |
-| `VITE_VAPI_API_KEY` | Optional | VAPI voice AI (AI Tutor feature) |
+1. Click the button above
+2. Add your environment variables
+3. Deploy ✅
 
-## Tech Stack
+---
 
-- **Frontend:** React 18 + TypeScript + Vite + Tailwind CSS + shadcn/ui
-- **PDF Extraction:** pdfjs-dist + Tesseract.js (OCR)
-- **AI:** Groq / OpenRouter / NVIDIA (configurable, with automatic fallback)
-- **Diagrams:** Custom SVG generation + ReactFlow
+## 🤝 Contributing
+
+Pull requests are welcome! For major changes, please open an issue first.
+
+---
+
+## 📄 License
+
+MIT © [Sakshi Awasthi](https://github.com/sakshii1411)
