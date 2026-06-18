@@ -4,7 +4,7 @@
 import React, { useState, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { ArrowLeft, BookOpen, Clipboard, Check, FileText, Loader2 } from "lucide-react";
-import { callAI } from "@/lib/aiClient";
+import { callAIStream } from "@/lib/aiClient";
 import { PDFUploader } from "@/components/PDFUploader";
 import { MarkdownRenderer } from "@/components/MarkdownRenderer";
 import type { ExtractionResult } from "@/lib/extractFileText";
@@ -73,8 +73,17 @@ const NotesMaker: React.FC = () => {
     setIsLoading(true);
     try {
       const prompt = buildPrompt(topic, noteType, extractedText);
-      const raw = await callAI(prompt, "You are an expert academic note-taker. Respond in clean Markdown only.", 0.4, 3500);
-      setNotes(cleanOutput(raw));
+      let accumulated = "";
+      await callAIStream(
+        prompt,
+        (chunk) => {
+          accumulated += chunk;
+          setNotes(cleanOutput(accumulated));
+        },
+        "You are an expert academic note-taker. Respond in clean Markdown only.",
+        0.4,
+        3500
+      );
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : "Unexpected error.");
     } finally {
@@ -175,16 +184,23 @@ const NotesMaker: React.FC = () => {
           <div className="space-y-4">
             <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-6 min-h-[540px] relative flex flex-col">
               <div className="flex items-center justify-between mb-4">
-                <h2 className="font-bold text-slate-700 text-base flex items-center gap-2">
+                <h2 className="font-bold text-slate-700 dark:text-slate-200 text-base flex items-center gap-2">
                   <span className="w-6 h-6 rounded-full bg-amber-100 text-amber-700 font-extrabold text-xs flex items-center justify-center">2</span>
                   Generated Notes
                 </h2>
-                {notes && (
-                  <button onClick={handleCopy} className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold border border-slate-200 rounded-lg hover:bg-slate-50 transition">
-                    {copied ? <Check className="h-3.5 w-3.5 text-green-500" /> : <Clipboard className="h-3.5 w-3.5" />}
-                    {copied ? "Copied!" : "Copy"}
-                  </button>
-                )}
+                <div className="flex items-center gap-2">
+                  {notes && (
+                    <span className="text-xs text-slate-400 dark:text-slate-500">
+                      {notes.split(/\s+/).filter(Boolean).length} words · {Math.max(1, Math.ceil(notes.split(/\s+/).filter(Boolean).length / 200))} min read
+                    </span>
+                  )}
+                  {notes && (
+                    <button onClick={handleCopy} className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold border border-slate-200 dark:border-slate-600 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-700 transition">
+                      {copied ? <Check className="h-3.5 w-3.5 text-green-500" /> : <Clipboard className="h-3.5 w-3.5" />}
+                      {copied ? "Copied!" : "Copy"}
+                    </button>
+                  )}
+                </div>
               </div>
 
               {isLoading && !notes && (
