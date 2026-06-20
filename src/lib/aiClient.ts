@@ -85,7 +85,11 @@ export async function callAI(userPrompt: string, systemPrompt?: string, temperat
   if (GROQ_API_KEY) { try { return await callGroq(userPrompt, systemPrompt, temperature, maxTokens); } catch (err: unknown) { errors.push(`[groq] ${err instanceof Error ? err.message : String(err)}`); } }
   if (OPENROUTER_API_KEY) { try { return await callOpenRouter(userPrompt, systemPrompt, temperature, maxTokens); } catch (err: unknown) { errors.push(`[openrouter] ${err instanceof Error ? err.message : String(err)}`); } }
   if (NVIDIA_API_KEY) { try { return await callNvidia(userPrompt, systemPrompt, temperature, maxTokens); } catch (err: unknown) { errors.push(`[nvidia] ${err instanceof Error ? err.message : String(err)}`); } }
-  throw new Error(`All AI providers failed. Details:\n${errors.join("\n")}\n\nPlease check your API keys in the .env file.`);
+  // User-friendly error based on what failed
+  const allRateLimited = errors.every(e => e.includes("429") || e.includes("rate") || e.includes("rate-limited"));
+  if (allRateLimited) throw new Error("All AI providers are busy right now. Please wait 30 seconds and try again.");
+  if (!GROQ_API_KEY && !OPENROUTER_API_KEY && !NVIDIA_API_KEY) throw new Error("No API keys configured. Add VITE_GROQ_API_KEY (or OpenRouter/NVIDIA) to your .env file.");
+  throw new Error(`AI request failed. ${errors[0] ?? "Please check your API keys and try again."}`);
 }
 
 /** Streaming version — calls onChunk with each new token, returns full text */

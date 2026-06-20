@@ -1,6 +1,7 @@
 import { useNavigate } from "react-router-dom";
 import { useTheme } from "next-themes";
 import { useState, useEffect, useRef } from "react";
+import { APIKeyChecker } from "@/components/APIKeyChecker";
 import {
   BookOpen,
   Brain,
@@ -145,6 +146,9 @@ const Dashboard = () => {
       </header>
 
       <main className="container mx-auto px-6 py-12 max-w-6xl">
+        {/* API key warning */}
+        <APIKeyChecker />
+
         {/* Hero */}
         <div className="mb-12">
           <p className="text-sm font-semibold uppercase tracking-widest text-blue-500 mb-3">Your personal study assistant</p>
