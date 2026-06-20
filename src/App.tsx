@@ -3,6 +3,7 @@ import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
+import { ErrorBoundary } from "@/components/ErrorBoundary";
 
 // Import all pages
 import NotFound from "./pages/NotFound";
@@ -27,7 +28,8 @@ const App = () => (
       <Toaster />
       <Sonner />
       <BrowserRouter>
-        <Routes>
+        <ErrorBoundary>
+          <Routes>
           {/* --- Auth Routes Removed --- */}
           
           {/* Main App Routes */}
@@ -51,6 +53,7 @@ const App = () => (
           {/* Catch-all 404 Route */}
           <Route path="*" element={<NotFound />} />
         </Routes>
+        </ErrorBoundary>
       </BrowserRouter>
     </TooltipProvider>
   </QueryClientProvider>
