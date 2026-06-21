@@ -1,607 +1,596 @@
 /**
- * ImageGenerator.tsx — Theory to Visual  (v3 — premium visuals)
+ * ImageGenerator.tsx — Theory to Visual v4 (3D Animated Diagrams)
  *
- * Improvements over v2:
- *  • Linear gradients on every node/shape
- *  • Glass-morphism background panels
- *  • Curved, tapered connector lines with glow
- *  • Richer typography: two font sizes (title + subtitle) per node
- *  • Flowchart: coloured per-node, gradient start/end pills, glow arrows
- *  • Mind Map: curved Bezier arms, gradient center orb, pill sub-items
- *  • Timeline: alternating left/right zigzag, gradient spine, icon circles
- *  • Cycle: radial gradient fill, animated-look arc connectors
- *  • Hierarchy: gradient root banner, connector elbows, leaf chips
- *  • Comparison: gradient headers, checkmark badges, alternating rows
- *  • PNG export (in addition to SVG)
+ * All diagrams rendered as HTML+CSS with:
+ *  • CSS 3D perspective transforms (rotateX, translateZ, perspective)
+ *  • Smooth entrance animations (fade-up, scale-in, slide-in)
+ *  • Hover lift effects with depth shadows
+ *  • Animated connectors (draw-on stroke-dashoffset)
+ *  • Floating/pulse animations on key nodes
+ *  • Glass-morphism panels with backdrop-filter
+ *  • Rich gradients, glows, and shadows
  */
-import React, { useState, useRef, useCallback } from "react";
+import React, { useState, useCallback, useRef } from "react";
 import { useNavigate } from "react-router-dom";
-import {
-  Card, CardContent, CardDescription,
-  CardHeader, CardTitle, CardFooter,
-} from "@/components/ui/card";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
-import {
-  ArrowLeft, Image as ImageIcon, Sparkles, Download,
-  Loader2, BookOpen, RefreshCw, Maximize2, Minimize2,
-  ZoomIn, ZoomOut, FileImage,
-} from "lucide-react";
+import { ArrowLeft, Sparkles, Download, Loader2, BookOpen, RefreshCw, Maximize2, Minimize2, FileImage } from "lucide-react";
 import { callAI } from "@/lib/aiClient";
 
-// ─── Diagram type catalogue ───────────────────────────────────────────────────
+// ── Diagram types ─────────────────────────────────────────────────────────────
 const DIAGRAM_TYPES = [
-  { value: "flowchart",   label: "🔀 Flowchart",      hint: "Processes, algorithms, decision trees" },
-  { value: "mindmap",     label: "🧠 Mind Map",        hint: "Concepts with multiple sub-topics" },
-  { value: "timeline",    label: "📅 Timeline",        hint: "Historical events, project phases" },
-  { value: "cycle",       label: "🔄 Cycle Diagram",   hint: "Repeating processes (water cycle etc.)" },
-  { value: "hierarchy",   label: "🏗️ Hierarchy",      hint: "Org charts, classification systems" },
-  { value: "comparison",  label: "⚖️ Comparison",     hint: "Compare options, approaches, features" },
+  { value: "flowchart",  label: "🔀 Flowchart",     hint: "Processes, algorithms, decision trees" },
+  { value: "mindmap",    label: "🧠 Mind Map",       hint: "Concepts with multiple sub-topics" },
+  { value: "timeline",   label: "📅 Timeline",       hint: "Historical events, project phases" },
+  { value: "cycle",      label: "🔄 Cycle Diagram",  hint: "Repeating processes (water cycle etc.)" },
+  { value: "hierarchy",  label: "🏗️ Hierarchy",     hint: "Org charts, classification systems" },
+  { value: "comparison", label: "⚖️ Comparison",    hint: "Compare options, approaches, features" },
 ];
 
-// ─── Colour palettes (bg light, bg dark gradient stop, border, text, accent) ──
+// ── Palette ───────────────────────────────────────────────────────────────────
 const PAL = [
-  { l:"#dbeafe", d:"#bfdbfe", g:"#3b82f6", b:"#2563eb", t:"#1e3a8a", a:"#1d4ed8" },
-  { l:"#dcfce7", d:"#bbf7d0", g:"#22c55e", b:"#16a34a", t:"#14532d", a:"#15803d" },
-  { l:"#f3e8ff", d:"#e9d5ff", g:"#a855f7", b:"#9333ea", t:"#581c87", a:"#7c3aed" },
-  { l:"#fff7ed", d:"#fed7aa", g:"#f97316", b:"#ea580c", t:"#7c2d12", a:"#c2410c" },
-  { l:"#fce7f3", d:"#fbcfe8", g:"#ec4899", b:"#db2777", t:"#831843", a:"#be185d" },
-  { l:"#ccfbf1", d:"#99f6e4", g:"#14b8a6", b:"#0d9488", t:"#134e4a", a:"#0f766e" },
-  { l:"#fef9c3", d:"#fef08a", g:"#eab308", b:"#ca8a04", t:"#713f12", a:"#a16207" },
+  { from:"#6366f1", to:"#8b5cf6", text:"#fff", shadow:"rgba(99,102,241,0.45)", border:"#818cf8" },
+  { from:"#10b981", to:"#059669", text:"#fff", shadow:"rgba(16,185,129,0.45)", border:"#34d399" },
+  { from:"#f59e0b", to:"#d97706", text:"#fff", shadow:"rgba(245,158,11,0.45)", border:"#fbbf24" },
+  { from:"#ec4899", to:"#db2777", text:"#fff", shadow:"rgba(236,72,153,0.45)", border:"#f472b6" },
+  { from:"#3b82f6", to:"#2563eb", text:"#fff", shadow:"rgba(59,130,246,0.45)", border:"#60a5fa" },
+  { from:"#14b8a6", to:"#0d9488", text:"#fff", shadow:"rgba(20,184,166,0.45)", border:"#2dd4bf" },
+  { from:"#a855f7", to:"#9333ea", text:"#fff", shadow:"rgba(168,85,247,0.45)", border:"#c084fc" },
 ];
 
-// ─── SVG helpers ──────────────────────────────────────────────────────────────
-function esc(s: string) {
-  return String(s ?? "")
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;");
+// ── Global CSS injected once ──────────────────────────────────────────────────
+const GLOBAL_CSS = `
+<style>
+@keyframes fadeUp {
+  from { opacity:0; transform: translateY(24px) scale(0.94); }
+  to   { opacity:1; transform: translateY(0)    scale(1); }
+}
+@keyframes slideRight {
+  from { opacity:0; transform: translateX(-32px); }
+  to   { opacity:1; transform: translateX(0); }
+}
+@keyframes slideLeft {
+  from { opacity:0; transform: translateX(32px); }
+  to   { opacity:1; transform: translateX(0); }
+}
+@keyframes scaleIn {
+  from { opacity:0; transform: scale(0.5) rotate(-8deg); }
+  to   { opacity:1; transform: scale(1)   rotate(0deg); }
+}
+@keyframes float {
+  0%,100% { transform: translateY(0px) rotate(0deg); }
+  50%      { transform: translateY(-8px) rotate(1deg); }
+}
+@keyframes pulse3d {
+  0%,100% { box-shadow: 0 8px 32px var(--sh), 0 0 0 0 var(--sh); }
+  50%      { box-shadow: 0 16px 48px var(--sh), 0 0 0 8px transparent; }
+}
+@keyframes spinOrbit {
+  from { transform: rotate(0deg) translateX(var(--orbit-r)) rotate(0deg); }
+  to   { transform: rotate(360deg) translateX(var(--orbit-r)) rotate(-360deg); }
+}
+@keyframes drawLine {
+  from { clip-path: inset(0 100% 0 0); }
+  to   { clip-path: inset(0 0% 0 0); }
+}
+@keyframes popIn {
+  0%   { opacity:0; transform: scale(0) translateY(10px); }
+  70%  { transform: scale(1.08) translateY(-2px); }
+  100% { opacity:1; transform: scale(1) translateY(0); }
+}
+@keyframes shimmer {
+  0%   { background-position: -200% center; }
+  100% { background-position: 200% center; }
+}
+.node-3d {
+  transition: transform 0.3s ease, box-shadow 0.3s ease;
+  transform-style: preserve-3d;
+}
+.node-3d:hover {
+  transform: translateY(-6px) rotateX(4deg) scale(1.04) !important;
+}
+.connector-line {
+  animation: drawLine 0.8s ease forwards;
+}
+.diagram-scene {
+  perspective: 1200px;
+  perspective-origin: 50% 30%;
+}
+</style>`;
+
+// ── Shared wrapper ────────────────────────────────────────────────────────────
+function wrap3D(content: string, minH = 520): string {
+  return `<div style="font-family:'Segoe UI',system-ui,sans-serif;min-height:${minH}px;
+    background:linear-gradient(135deg,#0f0c29,#302b63,#24243e);
+    border-radius:20px;padding:32px;overflow:hidden;position:relative;">
+    ${GLOBAL_CSS}
+    <!-- decorative bg orbs -->
+    <div style="position:absolute;top:-80px;left:-80px;width:300px;height:300px;
+      border-radius:50%;background:radial-gradient(circle,rgba(99,102,241,0.18),transparent 70%);pointer-events:none;"></div>
+    <div style="position:absolute;bottom:-60px;right:-60px;width:260px;height:260px;
+      border-radius:50%;background:radial-gradient(circle,rgba(168,85,247,0.16),transparent 70%);pointer-events:none;"></div>
+    ${content}
+  </div>`;
 }
 
-function wrap(text: string, maxCh: number, maxLines: number): string[] {
-  const words = String(text ?? "").trim().split(/\s+/);
-  const lines: string[] = [];
-  let cur = "";
-  for (const w of words) {
-    const cand = cur ? `${cur} ${w}` : w;
-    if (cand.length > maxCh && cur) {
-      lines.push(cur);
-      if (lines.length >= maxLines - 1) { cur = w.slice(0, maxCh - 1) + (words.indexOf(w) < words.length - 1 ? "…" : ""); break; }
-      cur = w.length > maxCh ? w.slice(0, maxCh - 1) + "…" : w;
-    } else { cur = cand.length > maxCh ? cand.slice(0, maxCh - 1) + "…" : cand; }
-  }
-  if (cur && lines.length < maxLines) lines.push(cur);
-  return lines.slice(0, maxLines);
-}
-
-function txt(
-  x: number, cy: number, lines: string[],
-  fs: number, fill: string, fw = "600", anchor = "middle", lhExtra = 4
-): string {
-  const lh = fs + lhExtra;
-  const startY = cy - ((lines.length - 1) * lh) / 2;
-  return lines.map((l, i) =>
-    `<text x="${x}" y="${startY + i * lh}" text-anchor="${anchor}" dominant-baseline="middle" ` +
-    `font-size="${fs}" font-weight="${fw}" fill="${fill}" ` +
-    `font-family="'Segoe UI',system-ui,sans-serif">${esc(l)}</text>`
-  ).join("");
-}
-
-// Shared defs block (gradients + filters) injected per diagram
-function sharedDefs(extra = ""): string {
-  return `<defs>
-  <filter id="sh" x="-20%" y="-20%" width="140%" height="140%">
-    <feDropShadow dx="0" dy="3" stdDeviation="4" flood-color="#00000022"/>
-  </filter>
-  <filter id="glow" x="-30%" y="-30%" width="160%" height="160%">
-    <feGaussianBlur stdDeviation="3" result="blur"/>
-    <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
-  </filter>
-  ${PAL.map((p, i) => `
-  <linearGradient id="ng${i}" x1="0%" y1="0%" x2="100%" y2="100%">
-    <stop offset="0%" stop-color="${p.l}"/>
-    <stop offset="100%" stop-color="${p.d}"/>
-  </linearGradient>
-  <linearGradient id="dg${i}" x1="0%" y1="0%" x2="100%" y2="100%">
-    <stop offset="0%" stop-color="${p.g}"/>
-    <stop offset="100%" stop-color="${p.a}"/>
-  </linearGradient>`).join("")}
-  <linearGradient id="bg0" x1="0%" y1="0%" x2="100%" y2="100%">
-    <stop offset="0%" stop-color="#f0f4ff"/>
-    <stop offset="100%" stop-color="#fafbff"/>
-  </linearGradient>
-  <linearGradient id="spine" x1="0%" y1="0%" x2="0%" y2="100%">
-    <stop offset="0%" stop-color="#6366f1"/>
-    <stop offset="100%" stop-color="#a855f7"/>
-  </linearGradient>
-  ${extra}
-</defs>`;
-}
-
-// ─── FLOWCHART ────────────────────────────────────────────────────────────────
-function makeFlowchart(
-  nodes: { id: string; label: string; type?: string }[],
-  edges: { from: string; to: string; label?: string }[]
-): string {
-  const NW = 210, NH = 64, HGAP = 270, VGAP = 120;
-
-  // BFS layering
-  const inDeg = new Map<string, number>();
+// ── FLOWCHART ─────────────────────────────────────────────────────────────────
+function makeFlowchart(nodes: {id:string;label:string;type?:string}[], edges: {from:string;to:string;label?:string}[]): string {
+  // Simple top-down layout: BFS layers
+  const inDeg = new Map<string,number>();
   nodes.forEach(n => inDeg.set(n.id, 0));
-  edges.forEach(e => inDeg.set(e.to, (inDeg.get(e.to) ?? 0) + 1));
-  const visited = new Set<string>();
+  edges.forEach(e => inDeg.set(e.to, (inDeg.get(e.to)??0)+1));
   const layers: string[][] = [];
-  const q = nodes.filter(n => (inDeg.get(n.id) ?? 0) === 0).map(n => n.id);
+  const visited = new Set<string>();
+  const q = nodes.filter(n => !inDeg.get(n.id)).map(n => n.id);
   if (!q.length && nodes.length) q.push(nodes[0].id);
-
   while (q.length) {
-    const layer = [...new Set(q.splice(0))];
-    const newLayer = layer.filter(id => !visited.has(id));
-    if (newLayer.length) { layers.push(newLayer); newLayer.forEach(id => { visited.add(id); edges.filter(e => e.from === id).forEach(e => { if (!visited.has(e.to)) q.push(e.to); }); }); }
+    const layer = [...new Set(q.splice(0))].filter(id => !visited.has(id));
+    if (!layer.length) break;
+    layers.push(layer); layer.forEach(id => { visited.add(id); edges.filter(e=>e.from===id).forEach(e=>{ if(!visited.has(e.to)) q.push(e.to); }); });
   }
-  nodes.forEach(n => { if (!visited.has(n.id)) layers.push([n.id]); });
+  nodes.forEach(n => { if (!visited.has(n.id)) { layers.push([n.id]); visited.add(n.id); }});
 
-  const maxPR = Math.max(...layers.map(l => l.length), 1);
-  const svgW = Math.max(560, maxPR * HGAP + 120);
-  const svgH = layers.length * VGAP + 120;
+  const nodeMap = new Map(nodes.map(n=>[n.id,n]));
+  const nodeIdx = new Map(nodes.map((n,i)=>[n.id,i]));
+  const ITEM_W = 200, GAP_X = 28, GAP_Y = 90;
 
-  const pos = new Map<string, { x: number; y: number }>();
+  let html = `<div class="diagram-scene" style="position:relative;">`;
+
+  // Render layers
   layers.forEach((layer, li) => {
-    const rowW = layer.length * HGAP;
-    const sx = (svgW - rowW) / 2 + HGAP / 2;
-    layer.forEach((id, j) => pos.set(id, { x: sx + j * HGAP, y: 70 + li * VGAP }));
-  });
+    const totalW = layer.length * ITEM_W + (layer.length-1) * GAP_X;
+    html += `<div style="display:flex;justify-content:center;gap:${GAP_X}px;margin-bottom:${li<layers.length-1?GAP_Y:0}px;position:relative;">`;
+    layer.forEach((id, ji) => {
+      const n = nodeMap.get(id)!;
+      const i = nodeIdx.get(id)??ji;
+      const p = PAL[i%PAL.length];
+      const delay = (li*0.15 + ji*0.08).toFixed(2);
+      const isStart = n.type==="start"||i===0;
+      const isEnd = n.type==="end"||i===nodes.length-1;
+      const isDec = n.type==="decision";
+      const borderR = isStart||isEnd ? "50px" : isDec ? "12px" : "16px";
+      const rotStyle = isDec ? "transform:rotate(0deg);" : "";
+      const shape = isDec
+        ? `<div style="width:${ITEM_W}px;height:56px;background:linear-gradient(135deg,${p.from},${p.to});clip-path:polygon(50% 0%,100% 50%,50% 100%,0% 50%);display:flex;align-items:center;justify-content:center;">
+             <span style="color:white;font-size:11px;font-weight:700;text-align:center;max-width:120px;">${n.label}</span></div>`
+        : `<div style="padding:14px 18px;background:linear-gradient(135deg,${p.from},${p.to});
+             border-radius:${borderR};color:white;font-size:12px;font-weight:700;
+             text-align:center;min-height:48px;display:flex;align-items:center;justify-content:center;
+             --sh:${p.shadow};box-shadow:0 8px 24px ${p.shadow},0 2px 8px rgba(0,0,0,0.3),inset 0 1px 0 rgba(255,255,255,0.2);
+             border:1px solid ${p.border};">${n.label}</div>`;
 
-  // Node colour by index
-  const nodeIdx = new Map<string, number>();
-  nodes.forEach((n, i) => nodeIdx.set(n.id, i));
+      html += `<div class="node-3d" style="animation:fadeUp 0.5s ${delay}s both ease;--sh:${p.shadow};
+        filter:drop-shadow(0 4px 16px ${p.shadow});flex-shrink:0;width:${ITEM_W}px;">${shape}</div>`;
 
-  let arrows = "";
-  const seen = new Set<string>();
-  edges.forEach(e => {
-    if (seen.has(`${e.from}-${e.to}`)) return; seen.add(`${e.from}-${e.to}`);
-    const f = pos.get(e.from), t = pos.get(e.to);
-    if (!f || !t) return;
-    const sameX = Math.abs(f.x - t.x) < 5;
-    const my = (f.y + t.y) / 2;
-    const d = sameX
-      ? `M${f.x},${f.y + NH / 2} L${t.x},${t.y - NH / 2}`
-      : `M${f.x},${f.y + NH / 2} C${f.x},${my} ${t.x},${my} ${t.x},${t.y - NH / 2}`;
-    const fi = nodeIdx.get(e.from) ?? 0;
-    const col = PAL[fi % PAL.length].g;
-    arrows += `<path d="${d}" fill="none" stroke="${col}" stroke-width="2.5" stroke-linecap="round" marker-end="url(#arr${fi % PAL.length})" opacity="0.85"/>`;
-    if (e.label) {
-      const mx = (f.x + t.x) / 2, lmy = my;
-      arrows += `<rect x="${mx - 24}" y="${lmy - 11}" width="48" height="22" rx="6" fill="white" stroke="${col}" stroke-width="1" opacity="0.95"/>`;
-      arrows += txt(mx, lmy, [String(e.label).slice(0, 10)], 10, col, "700");
-    }
-  });
-
-  let nodeSvg = "";
-  nodes.forEach((n, i) => {
-    const p = pos.get(n.id); if (!p) return;
-    const c = PAL[i % PAL.length];
-    const isStart = n.type === "start" || i === 0;
-    const isEnd = n.type === "end" || i === nodes.length - 1;
-    const isDec = n.type === "decision";
-    const lines = wrap(n.label, 20, 3);
-    const nodeH = Math.max(NH, lines.length * 16 + 24);
-
-    if (isDec) {
-      const hw = NW / 2 + 10, hh = nodeH / 2 + 12;
-      nodeSvg += `<polygon points="${p.x},${p.y - hh} ${p.x + hw},${p.y} ${p.x},${p.y + hh} ${p.x - hw},${p.y}" fill="url(#ng${i % PAL.length})" stroke="${c.b}" stroke-width="2.5" filter="url(#sh)"/>`;
-      nodeSvg += txt(p.x, p.y, lines, 11, c.t, "700");
-    } else if (isStart || isEnd) {
-      nodeSvg += `<rect x="${p.x - NW / 2}" y="${p.y - nodeH / 2}" width="${NW}" height="${nodeH}" rx="${nodeH / 2}" fill="url(#dg${i % PAL.length})" stroke="${c.b}" stroke-width="2" filter="url(#sh)"/>`;
-      nodeSvg += txt(p.x, p.y, lines, 12, "white", "700");
-    } else {
-      nodeSvg += `<rect x="${p.x - NW / 2}" y="${p.y - nodeH / 2}" width="${NW}" height="${nodeH}" rx="14" fill="url(#ng${i % PAL.length})" stroke="${c.b}" stroke-width="2" filter="url(#sh)"/>`;
-      nodeSvg += txt(p.x, p.y, lines, 12, c.t, "600");
-    }
-  });
-
-  const arrowMarkers = PAL.map((p, i) =>
-    `<marker id="arr${i}" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto">
-      <polygon points="0 0,10 3.5,0 7" fill="${p.g}"/>
-    </marker>`).join("");
-
-  return `<svg viewBox="0 0 ${svgW} ${svgH}" xmlns="http://www.w3.org/2000/svg">
-  ${sharedDefs(arrowMarkers)}
-  <rect width="${svgW}" height="${svgH}" fill="url(#bg0)" rx="16"/>
-  ${arrows}
-  <g>${nodeSvg}</g>
-</svg>`;
-}
-
-// ─── MIND MAP ─────────────────────────────────────────────────────────────────
-function makeMindMap(center: string, branches: { label: string; items?: string[] }[]): string {
-  const count = Math.min(branches.length, 7);
-  const svgW = 1160, svgH = 820;
-  const cx = svgW / 2, cy = svgH / 2;
-  const R = 250, subR = 155;
-
-  let svg = `<rect width="${svgW}" height="${svgH}" fill="url(#bg0)" rx="16"/>`;
-
-  // Glowing rings
-  svg += `<circle cx="${cx}" cy="${cy}" r="${R + 40}" fill="none" stroke="#6366f133" stroke-width="1" stroke-dasharray="6,5"/>`;
-  svg += `<circle cx="${cx}" cy="${cy}" r="${R - 40}" fill="none" stroke="#a855f722" stroke-width="1" stroke-dasharray="4,6"/>`;
-
-  // Center orb
-  svg += `<circle cx="${cx}" cy="${cy}" r="80" fill="url(#dg2)" stroke="#7c3aed" stroke-width="3" filter="url(#sh)"/>`;
-  svg += `<circle cx="${cx}" cy="${cy}" r="80" fill="none" stroke="white" stroke-width="1" opacity="0.3"/>`;
-  const cLines = wrap(center, 14, 3);
-  svg += txt(cx, cy, cLines, 14, "white", "800");
-
-  branches.slice(0, count).forEach((branch, i) => {
-    const angle = (2 * Math.PI * i) / count - Math.PI / 2;
-    const bx = cx + Math.cos(angle) * R;
-    const by = cy + Math.sin(angle) * R;
-    const c = PAL[i % PAL.length];
-
-    // Curved arm from orb edge to branch
-    const ox = cx + Math.cos(angle) * 82, oy = cy + Math.sin(angle) * 82;
-    const bex = bx - Math.cos(angle) * 78, bey = by - Math.sin(angle) * 34;
-    const cpx = cx + Math.cos(angle) * (R / 2), cpy = cy + Math.sin(angle) * (R / 2);
-    svg += `<path d="M${ox},${oy} Q${cpx},${cpy} ${bex},${bey}" fill="none" stroke="${c.g}" stroke-width="3" stroke-linecap="round" opacity="0.7"/>`;
-
-    // Branch bubble
-    const bLines = wrap(branch.label, 13, 2);
-    const BW = 148, BH = Math.max(52, bLines.length * 18 + 18);
-    svg += `<rect x="${bx - BW / 2}" y="${by - BH / 2}" width="${BW}" height="${BH}" rx="14" fill="url(#dg${i % PAL.length})" stroke="${c.b}" stroke-width="2" filter="url(#sh)"/>`;
-    svg += txt(bx, by, bLines, 12, "white", "700");
-
-    // Sub-items
-    const items = (branch.items ?? []).slice(0, 4);
-    items.forEach((item, j) => {
-      const spread = items.length <= 1 ? 0 : (j - (items.length - 1) / 2) * 0.44;
-      const sAngle = angle + spread;
-      const sx = cx + Math.cos(sAngle) * (R + subR);
-      const sy = cy + Math.sin(sAngle) * (R + subR);
-
-      const arm1x = bx + Math.cos(sAngle) * (BW / 2);
-      const arm1y = by + Math.sin(sAngle) * (BH / 2);
-      const arm2x = sx - Math.cos(sAngle) * 58;
-      const arm2y = sy - Math.sin(sAngle) * 18;
-      svg += `<line x1="${arm1x}" y1="${arm1y}" x2="${arm2x}" y2="${arm2y}" stroke="${c.g}" stroke-width="1.8" opacity="0.5" stroke-dasharray="4,3"/>`;
-
-      const iLines = wrap(item, 12, 2);
-      const IW = 116, IH = Math.max(34, iLines.length * 14 + 14);
-      svg += `<rect x="${sx - IW / 2}" y="${sy - IH / 2}" width="${IW}" height="${IH}" rx="10" fill="url(#ng${i % PAL.length})" stroke="${c.b}" stroke-width="1.5"/>`;
-      svg += txt(sx, sy, iLines, 10, c.t, "600");
-    });
-  });
-
-  return `<svg viewBox="0 0 ${svgW} ${svgH}" xmlns="http://www.w3.org/2000/svg">
-  ${sharedDefs()}
-  ${svg}
-</svg>`;
-}
-
-// ─── TIMELINE ─────────────────────────────────────────────────────────────────
-function makeTimeline(events: { year: string; title: string; desc?: string }[]): string {
-  const ROW_H = 110;
-  const svgW = 900;
-  const svgH = events.length * ROW_H + 100;
-  const spineX = svgW / 2;
-
-  let svg = `<rect width="${svgW}" height="${svgH}" fill="url(#bg0)" rx="16"/>`;
-  // Gradient spine
-  svg += `<line x1="${spineX}" y1="30" x2="${spineX}" y2="${svgH - 20}" stroke="url(#spine)" stroke-width="4" stroke-linecap="round"/>`;
-
-  events.forEach((ev, i) => {
-    const y = 55 + i * ROW_H;
-    const c = PAL[i % PAL.length];
-    const isLeft = i % 2 === 0;
-    const cardW = 330, cardX = isLeft ? spineX - 24 - cardW : spineX + 24;
-
-    // Dot on spine
-    svg += `<circle cx="${spineX}" cy="${y}" r="16" fill="url(#dg${i % PAL.length})" stroke="white" stroke-width="3" filter="url(#sh)"/>`;
-    svg += txt(spineX, y, [String(i + 1)], 11, "white", "800");
-
-    // Connector elbow
-    const elbowX = isLeft ? spineX - 22 : spineX + 22;
-    svg += `<line x1="${elbowX}" y1="${y}" x2="${isLeft ? cardX + cardW : cardX}" y2="${y}" stroke="${c.g}" stroke-width="2" stroke-dasharray="5,3" opacity="0.6"/>`;
-
-    // Year badge above
-    const yearLines = wrap(String(ev.year ?? ""), 8, 1);
-    const yx = isLeft ? spineX - 28 : spineX + 28;
-    const ya = isLeft ? "end" : "start";
-    svg += txt(yx, y - 24, yearLines, 11, c.b, "800", ya, 5);
-
-    // Card
-    const titleLines = wrap(String(ev.title ?? ""), 28, 2);
-    const descLines = ev.desc ? wrap(String(ev.desc), 38, 2) : [];
-    const cardH = Math.max(60, (titleLines.length + descLines.length) * 18 + 24);
-
-    svg += `<rect x="${cardX}" y="${y - cardH / 2}" width="${cardW}" height="${cardH}" rx="14" fill="url(#ng${i % PAL.length})" stroke="${c.b}" stroke-width="2" filter="url(#sh)"/>`;
-    // Left accent bar
-    svg += `<rect x="${cardX}" y="${y - cardH / 2}" width="6" height="${cardH}" rx="6" fill="url(#dg${i % PAL.length})"/>`;
-
-    const textX = cardX + 18;
-    const titleY = descLines.length ? y - descLines.length * 9 - 2 : y;
-    svg += txt(textX, titleY, titleLines, 13, c.t, "700", "start", 5);
-    if (descLines.length) svg += txt(textX, y + titleLines.length * 10 + 2, descLines, 11, "#64748b", "400", "start", 5);
-  });
-
-  return `<svg viewBox="0 0 ${svgW} ${svgH}" xmlns="http://www.w3.org/2000/svg">
-  ${sharedDefs()}
-  ${svg}
-</svg>`;
-}
-
-// ─── CYCLE ────────────────────────────────────────────────────────────────────
-function makeCycle(steps: { label: string; desc?: string }[]): string {
-  const count = Math.min(steps.length, 7);
-  const svgW = 800, svgH = 760;
-  const cx = svgW / 2, cy = svgH / 2;
-  const R = 240;
-  const rx = 88, ry = 50;
-
-  const arrowMarkers = PAL.map((p, i) =>
-    `<marker id="ca${i}" markerWidth="9" markerHeight="7" refX="8" refY="3.5" orient="auto">
-      <polygon points="0 0,9 3.5,0 7" fill="${p.g}"/>
-    </marker>`).join("");
-
-  const positions = Array.from({ length: count }, (_, i) => {
-    const angle = (2 * Math.PI * i) / count - Math.PI / 2;
-    return { x: cx + Math.cos(angle) * R, y: cy + Math.sin(angle) * R, angle };
-  });
-
-  let svg = `<rect width="${svgW}" height="${svgH}" fill="url(#bg0)" rx="16"/>`;
-
-  // Decorative track circle
-  svg += `<circle cx="${cx}" cy="${cy}" r="${R}" fill="none" stroke="#e2e8f0" stroke-width="2" stroke-dasharray="8,5"/>`;
-
-  // Center hub
-  svg += `<circle cx="${cx}" cy="${cy}" r="62" fill="url(#dg2)" filter="url(#sh)"/>`;
-  svg += `<circle cx="${cx}" cy="${cy}" r="62" fill="none" stroke="white" stroke-width="1.5" opacity="0.3"/>`;
-  const hubLines = wrap("Cycle", 8, 1);
-  svg += txt(cx, cy, hubLines, 16, "white", "800");
-
-  positions.forEach((p, i) => {
-    const next = positions[(i + 1) % count];
-    const c = PAL[i % PAL.length];
-
-    // Arc connector between nodes
-    const midA = (p.angle + next.angle) / 2;
-    const cpx = cx + Math.cos(midA) * (R + 48);
-    const cpy = cy + Math.sin(midA) * (R + 48);
-    svg += `<path d="M${p.x} ${p.y} Q${cpx} ${cpy} ${next.x} ${next.y}" fill="none" stroke="${c.g}" stroke-width="3" stroke-linecap="round" marker-end="url(#ca${i})" opacity="0.8"/>`;
-
-    // Ellipse node with gradient
-    svg += `<ellipse cx="${p.x}" cy="${p.y}" rx="${rx}" ry="${ry}" fill="url(#ng${i % PAL.length})" stroke="${c.b}" stroke-width="2.5" filter="url(#sh)"/>`;
-
-    // Step number badge
-    const bx = p.x + rx * 0.68, by = p.y - ry * 0.72;
-    svg += `<circle cx="${bx}" cy="${by}" r="14" fill="url(#dg${i % PAL.length})" stroke="white" stroke-width="2"/>`;
-    svg += txt(bx, by, [String(i + 1)], 11, "white", "800");
-
-    const lines = wrap(steps[i].label, 11, 2);
-    svg += txt(p.x, p.y - (steps[i].desc ? 6 : 0), lines, 11, c.t, "700");
-    if (steps[i].desc) {
-      const dLines = wrap(steps[i].desc!, 13, 1);
-      svg += txt(p.x, p.y + 13, dLines, 9, "#64748b", "400");
-    }
-  });
-
-  return `<svg viewBox="0 0 ${svgW} ${svgH}" xmlns="http://www.w3.org/2000/svg">
-  ${sharedDefs(arrowMarkers)}
-  ${svg}
-</svg>`;
-}
-
-// ─── HIERARCHY ────────────────────────────────────────────────────────────────
-function makeHierarchy(root: string, children: { label: string; children?: string[] }[]): string {
-  const cols = Math.min(children.length, 5);
-  const COL_W = 185;
-  const NW = 168, NH = 54;
-  const maxSubs = Math.max(...children.map(c => (c.children ?? []).length), 0);
-  const svgW = Math.max(760, cols * COL_W + 120);
-  const svgH = maxSubs > 0 ? 370 : 230;
-  const cx = svgW / 2;
-
-  let svg = `<rect width="${svgW}" height="${svgH}" fill="url(#bg0)" rx="16"/>`;
-
-  // Root banner — gradient pill
-  const rootLines = wrap(root, 18, 2);
-  const rootH = Math.max(NH, rootLines.length * 18 + 18);
-  svg += `<rect x="${cx - NW / 2 - 10}" y="14" width="${NW + 20}" height="${rootH}" rx="16" fill="url(#dg2)" filter="url(#sh)"/>`;
-  svg += `<rect x="${cx - NW / 2 - 10}" y="14" width="${NW + 20}" height="${rootH}" rx="16" fill="none" stroke="white" stroke-width="1" opacity="0.3"/>`;
-  svg += txt(cx, 14 + rootH / 2, rootLines, 13, "white", "800");
-
-  const totalW = cols * COL_W;
-  const startX = cx - totalW / 2 + COL_W / 2;
-
-  // Horizontal bus line
-  if (cols > 1) {
-    svg += `<line x1="${startX}" y1="108" x2="${startX + (cols - 1) * COL_W}" y2="108" stroke="#c7d2fe" stroke-width="2.5"/>`;
-  }
-
-  children.slice(0, cols).forEach((child, i) => {
-    const bx = startX + i * COL_W;
-    const by = 84;
-    const c = PAL[i % PAL.length];
-
-    // Drop from root
-    svg += `<line x1="${cx}" y1="${14 + rootH}" x2="${bx}" y2="${by}" stroke="#818cf8" stroke-width="2" stroke-dasharray="5,3" opacity="0.7"/>`;
-
-    const bLines = wrap(child.label, 14, 2);
-    const BH = Math.max(NH, bLines.length * 17 + 18);
-    svg += `<rect x="${bx - NW / 2}" y="${by}" width="${NW}" height="${BH}" rx="12" fill="url(#ng${i % PAL.length})" stroke="${c.b}" stroke-width="2" filter="url(#sh)"/>`;
-    svg += `<rect x="${bx - NW / 2}" y="${by}" width="5" height="${BH}" rx="5" fill="url(#dg${i % PAL.length})"/>`;
-    svg += txt(bx + 3, by + BH / 2, bLines, 11, c.t, "700");
-
-    const subs = (child.children ?? []).slice(0, 4);
-    const subCount = subs.length;
-    const subSpan = Math.min(subCount * 90, NW + 20);
-    subs.forEach((gc, j) => {
-      const gcx = subs.length === 1 ? bx : bx - subSpan / 2 + j * (subSpan / (subCount - 1));
-      const gcy = by + BH + 50;
-      svg += `<line x1="${bx}" y1="${by + BH}" x2="${gcx}" y2="${gcy}" stroke="${c.g}" stroke-width="1.6" opacity="0.6"/>`;
-      const gcLines = wrap(gc, 11, 2);
-      const GW = 100, GH = Math.max(34, gcLines.length * 14 + 14);
-      svg += `<rect x="${gcx - GW / 2}" y="${gcy}" width="${GW}" height="${GH}" rx="9" fill="url(#ng${i % PAL.length})" stroke="${c.b}" stroke-width="1.5"/>`;
-      svg += txt(gcx, gcy + GH / 2, gcLines, 10, c.t, "600");
-    });
-  });
-
-  return `<svg viewBox="0 0 ${svgW} ${svgH}" xmlns="http://www.w3.org/2000/svg">
-  ${sharedDefs()}
-  ${svg}
-</svg>`;
-}
-
-// ─── COMPARISON ───────────────────────────────────────────────────────────────
-function makeComparison(items: { name: string; points: string[] }[]): string {
-  const cols = Math.min(items.length, 3);
-  const COL_W = 258, HDR_H = 80, ROW_H = 56, PAD = 18, GAP = 10;
-  const maxPts = Math.max(...items.map(it => it.points.length), 3);
-  const svgW = cols * COL_W + PAD * 2 + (cols - 1) * GAP;
-  const svgH = HDR_H + maxPts * ROW_H + PAD * 2 + 24;
-
-  let svg = `<rect width="${svgW}" height="${svgH}" fill="url(#bg0)" rx="16"/>`;
-
-  items.slice(0, cols).forEach((item, i) => {
-    const x = PAD + i * (COL_W + GAP);
-    const c = PAL[i % PAL.length];
-
-    // Gradient header
-    svg += `<rect x="${x}" y="${PAD}" width="${COL_W}" height="${HDR_H}" rx="14" fill="url(#dg${i % PAL.length})" filter="url(#sh)"/>`;
-    svg += `<rect x="${x}" y="${PAD}" width="${COL_W}" height="${HDR_H}" rx="14" fill="none" stroke="white" stroke-width="1" opacity="0.2"/>`;
-    const nLines = wrap(item.name, 17, 2);
-    svg += txt(x + COL_W / 2, PAD + HDR_H / 2, nLines, 14, "white", "800");
-
-    const pts = [...item.points.slice(0, maxPts)];
-    while (pts.length < maxPts) pts.push("");
-
-    pts.forEach((pt, j) => {
-      const py = PAD + HDR_H + 6 + j * ROW_H;
-      const isEven = j % 2 === 0;
-      const fill = isEven ? `url(#ng${i % PAL.length})` : "white";
-      svg += `<rect x="${x}" y="${py}" width="${COL_W}" height="${ROW_H - 4}" rx="10" fill="${fill}" stroke="${c.b}" stroke-width="1.3"/>`;
-      if (pt) {
-        // Checkmark badge
-        svg += `<circle cx="${x + 22}" cy="${py + (ROW_H - 4) / 2}" r="10" fill="url(#dg${i % PAL.length})"/>`;
-        svg += txt(x + 22, py + (ROW_H - 4) / 2, ["✓"], 10, "white", "900");
-        const ptLines = wrap(pt, 21, 2);
-        svg += txt(x + 40, py + (ROW_H - 4) / 2, ptLines, 10, c.t, "500", "start", 4);
+      // Arrow down to next layer (first edge from this node)
+      if (li < layers.length-1) {
+        const nextEdge = edges.find(e=>e.from===id);
+        if (nextEdge) {
+          html += `<div style="position:absolute;bottom:-${GAP_Y-4}px;left:50%;transform:translateX(-50%);
+            width:2px;height:${GAP_Y-8}px;display:flex;flex-direction:column;align-items:center;pointer-events:none;">
+            <div class="connector-line" style="flex:1;width:2px;background:linear-gradient(to bottom,${p.from},${p.to});
+              animation-delay:${(parseFloat(delay)+0.3).toFixed(2)}s;"></div>
+            <div style="width:0;height:0;border-left:6px solid transparent;border-right:6px solid transparent;
+              border-top:10px solid ${p.to};margin-top:-1px;"></div>
+            ${nextEdge.label ? `<span style="position:absolute;top:40%;background:rgba(255,255,255,0.12);
+              backdrop-filter:blur(4px);color:white;font-size:9px;font-weight:700;padding:2px 6px;
+              border-radius:6px;white-space:nowrap;">${nextEdge.label}</span>` : ""}
+          </div>`;
+        }
       }
     });
+    html += `</div>`;
   });
 
-  return `<svg viewBox="0 0 ${svgW} ${svgH}" xmlns="http://www.w3.org/2000/svg">
-  ${sharedDefs()}
-  ${svg}
-</svg>`;
+  html += `</div>`;
+  return wrap3D(html, 120 + layers.length * 130);
 }
 
-// ─── Main component ───────────────────────────────────────────────────────────
-const SYS = `You are an expert diagram data extractor. Return ONLY valid JSON — zero markdown fences, zero text outside the JSON. Node labels must be concise (2-5 words). Sub-items max 50 chars. Use ACCURATE content from the topic — no generic placeholders.`;
+// ── MIND MAP ─────────────────────────────────────────────────────────────────
+function makeMindMap(center: string, branches: {label:string;items?:string[]}[]): string {
+  const count = Math.min(branches.length, 6);
+  const R = 210; // px from center to branch in the grid approach
 
-const PROMPTS: Record<string, (t: string) => string> = {
-  flowchart: t => `Create a FLOWCHART for: "${t}"
-Return JSON: {"nodes":[{"id":"1","label":"Start","type":"start"},{"id":"2","label":"Step","type":"process"},{"id":"3","label":"Decision?","type":"decision"},{"id":"4","label":"Yes path","type":"process"},{"id":"5","label":"No path","type":"process"},{"id":"6","label":"End","type":"end"}],"edges":[{"from":"1","to":"2"},{"from":"2","to":"3"},{"from":"3","to":"4","label":"Yes"},{"from":"3","to":"5","label":"No"},{"from":"4","to":"6"},{"from":"5","to":"6"}]}
-RULES: 5-9 nodes. Include a decision node if logical. type = start|process|decision|end. Replace ALL placeholders with accurate labels from "${t}".`,
+  let html = `<div style="position:relative;min-height:640px;display:flex;align-items:center;justify-content:center;">`;
 
-  mindmap: t => `Create a MIND MAP for: "${t}"
-Return JSON: {"center":"Core Topic","branches":[{"label":"Branch 1","items":["item","item","item"]},{"label":"Branch 2","items":["item","item","item"]},{"label":"Branch 3","items":["item","item","item"]},{"label":"Branch 4","items":["item","item"]},{"label":"Branch 5","items":["item","item"]}]}
-RULES: 4-6 branches, 2-4 items each. All content accurate and specific to "${t}".`,
+  // Center orb — floating animation
+  html += `<div class="node-3d" style="position:absolute;z-index:10;
+    animation:float 4s ease-in-out infinite,scaleIn 0.6s 0.1s both;
+    width:140px;height:140px;border-radius:50%;
+    background:linear-gradient(135deg,#6366f1,#a855f7,#ec4899);
+    box-shadow:0 0 60px rgba(139,92,246,0.7),0 20px 40px rgba(0,0,0,0.4),inset 0 1px 0 rgba(255,255,255,0.3);
+    display:flex;align-items:center;justify-content:center;text-align:center;
+    border:2px solid rgba(255,255,255,0.2);">
+    <span style="color:white;font-size:13px;font-weight:800;padding:8px;line-height:1.3;">${center}</span>
+  </div>`;
 
-  timeline: t => `Create a TIMELINE for: "${t}"
-Return JSON: {"events":[{"year":"Period","title":"Event","desc":"Short description max 55 chars"},...]}
-RULES: 5-8 events chronologically. Title 2-4 words. Year can be a phase name. All accurate for "${t}".`,
+  // SVG for connector lines
+  const svgSize = 640;
+  const cx = svgSize/2, cy = svgSize/2;
+  let svgLines = `<svg style="position:absolute;inset:0;width:100%;height:100%;pointer-events:none;" viewBox="0 0 ${svgSize} ${svgSize}">`;
 
-  cycle: t => `Create a CYCLE DIAGRAM for: "${t}"
-Return JSON: {"steps":[{"label":"Step Name","desc":"What happens, max 45 chars"},...]}
-RULES: 4-6 steps forming a CLOSED LOOP in correct order. All accurate for "${t}".`,
+  branches.slice(0, count).forEach((branch, i) => {
+    const angle = (2*Math.PI*i/count) - Math.PI/2;
+    const bx = cx + Math.cos(angle)*R;
+    const by = cy + Math.sin(angle)*R;
+    const p = PAL[i%PAL.length];
+    const delay = (0.3 + i*0.12).toFixed(2);
 
-  hierarchy: t => `Create a HIERARCHY for: "${t}"
-Return JSON: {"root":"Top Concept","children":[{"label":"Category","children":["item","item","item"]},{"label":"Category","children":["item","item"]},{"label":"Category","children":["item","item"]},{"label":"Category","children":["item","item"]}]}
-RULES: 3-5 categories, 2-4 leaf items each. All specific and accurate for "${t}".`,
+    // Animated bezier line
+    const cp1x = cx + Math.cos(angle)*R*0.4, cp1y = cy + Math.sin(angle)*R*0.4;
+    svgLines += `<path d="M${cx},${cy} Q${cp1x},${cp1y} ${bx},${by}"
+      fill="none" stroke="${p.from}" stroke-width="2.5" stroke-linecap="round" opacity="0.7"
+      stroke-dasharray="300" stroke-dashoffset="300">
+      <animate attributeName="stroke-dashoffset" from="300" to="0" dur="0.7s" begin="${delay}s" fill="freeze"/>
+    </path>`;
 
-  comparison: t => `Create a COMPARISON for: "${t}"
-Return JSON: {"items":[{"name":"Option A","points":["point","point","point","point","point"]},{"name":"Option B","points":["point","point","point","point","point"]},{"name":"Option C","points":["point","point","point","point","point"]}]}
-RULES: 2-3 real options from "${t}". Exactly 5 points each ≤28 chars. Highlight real differences.`,
+    // Sub-item lines
+    (branch.items??[]).slice(0,4).forEach((_, j) => {
+      const spread = (branch.items??[]).length <= 1 ? 0 : (j - ((branch.items??[]).length-1)/2) * 0.5;
+      const sa = angle + spread;
+      const sx = cx + Math.cos(sa)*(R+140), sy = cy + Math.sin(sa)*(R+140);
+      svgLines += `<line x1="${bx}" y1="${by}" x2="${sx}" y2="${sy}"
+        stroke="${p.border}" stroke-width="1.5" opacity="0.4" stroke-dasharray="4,3">
+        <animate attributeName="opacity" from="0" to="0.4" dur="0.4s" begin="${(parseFloat(delay)+0.4).toFixed(2)}s" fill="freeze"/>
+      </line>`;
+    });
+  });
+  svgLines += `</svg>`;
+  html += svgLines;
+
+  // Branch bubbles + sub-items
+  branches.slice(0, count).forEach((branch, i) => {
+    const angle = (2*Math.PI*i/count) - Math.PI/2;
+    const bx = cx + Math.cos(angle)*R;
+    const by = cy + Math.sin(angle)*R;
+    const p = PAL[i%PAL.length];
+    const delay = (0.3 + i*0.12).toFixed(2);
+    const leftHalf = Math.cos(angle) < -0.1;
+
+    html += `<div class="node-3d" style="position:absolute;
+      left:calc(${(bx/svgSize)*100}% - 70px);top:calc(${(by/svgSize)*100}% - 28px);
+      animation:scaleIn 0.5s ${delay}s both;z-index:5;
+      width:140px;min-height:56px;padding:10px 14px;
+      background:linear-gradient(135deg,${p.from},${p.to});
+      border-radius:16px;border:1px solid ${p.border};
+      box-shadow:0 8px 32px ${p.shadow},0 2px 8px rgba(0,0,0,0.3),inset 0 1px 0 rgba(255,255,255,0.2);
+      display:flex;align-items:center;justify-content:center;text-align:center;">
+      <span style="color:white;font-size:11px;font-weight:700;line-height:1.3;">${branch.label}</span>
+    </div>`;
+
+    (branch.items??[]).slice(0,4).forEach((item, j) => {
+      const items = (branch.items??[]).slice(0,4);
+      const spread = items.length<=1 ? 0 : (j-(items.length-1)/2)*0.5;
+      const sa = angle + spread;
+      const sx = cx + Math.cos(sa)*(R+140), sy = cy + Math.sin(sa)*(R+140);
+      const itemDelay = (parseFloat(delay)+0.35+j*0.07).toFixed(2);
+      html += `<div class="node-3d" style="position:absolute;
+        left:calc(${(sx/svgSize)*100}% - 52px);top:calc(${(sy/svgSize)*100}% - 18px);
+        animation:popIn 0.4s ${itemDelay}s both;z-index:4;
+        width:104px;padding:6px 10px;
+        background:rgba(255,255,255,0.08);backdrop-filter:blur(8px);
+        border-radius:10px;border:1px solid ${p.border};
+        display:flex;align-items:center;justify-content:center;text-align:center;">
+        <span style="color:white;font-size:10px;font-weight:500;opacity:0.9;line-height:1.3;">${item}</span>
+      </div>`;
+    });
+  });
+
+  html += `</div>`;
+  return wrap3D(html, 640);
+}
+
+// ── TIMELINE ─────────────────────────────────────────────────────────────────
+function makeTimeline(events: {year:string;title:string;desc?:string}[]): string {
+  let html = `<div style="position:relative;padding:0 16px;">
+    <!-- Spine -->
+    <div style="position:absolute;left:50%;transform:translateX(-50%);top:0;bottom:0;width:3px;
+      background:linear-gradient(to bottom,#6366f1,#a855f7,#ec4899);
+      border-radius:4px;opacity:0.7;"></div>`;
+
+  events.forEach((ev, i) => {
+    const isLeft = i%2===0;
+    const p = PAL[i%PAL.length];
+    const delay = (i*0.15).toFixed(2);
+    const anim = isLeft ? "slideRight" : "slideLeft";
+
+    html += `<div style="display:flex;align-items:center;margin-bottom:36px;position:relative;
+      ${isLeft ? "flex-direction:row" : "flex-direction:row-reverse"};">
+
+      <!-- Card -->
+      <div class="node-3d" style="width:calc(50% - 40px);
+        animation:${anim} 0.55s ${delay}s both;
+        background:rgba(255,255,255,0.06);backdrop-filter:blur(12px);
+        border-radius:18px;padding:18px 20px;
+        border:1px solid ${p.border};
+        box-shadow:0 8px 32px ${p.shadow},0 2px 8px rgba(0,0,0,0.3),inset 0 1px 0 rgba(255,255,255,0.08);">
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;">
+          <span style="background:linear-gradient(135deg,${p.from},${p.to});
+            color:white;font-size:10px;font-weight:800;padding:3px 10px;border-radius:20px;
+            box-shadow:0 2px 8px ${p.shadow};">${ev.year}</span>
+        </div>
+        <p style="color:white;font-size:13px;font-weight:700;margin:0 0 4px;line-height:1.3;">${ev.title}</p>
+        ${ev.desc ? `<p style="color:rgba(255,255,255,0.6);font-size:11px;margin:0;line-height:1.4;">${ev.desc}</p>` : ""}
+      </div>
+
+      <!-- Center dot -->
+      <div style="width:80px;flex-shrink:0;display:flex;justify-content:center;z-index:2;
+        animation:scaleIn 0.4s ${(parseFloat(delay)+0.1).toFixed(2)}s both;">
+        <div style="width:44px;height:44px;border-radius:50%;
+          background:linear-gradient(135deg,${p.from},${p.to});
+          box-shadow:0 0 20px ${p.shadow},0 4px 12px rgba(0,0,0,0.4),inset 0 1px 0 rgba(255,255,255,0.3);
+          border:3px solid rgba(255,255,255,0.2);
+          display:flex;align-items:center;justify-content:center;">
+          <span style="color:white;font-size:13px;font-weight:900;">${i+1}</span>
+        </div>
+      </div>
+
+      <!-- Spacer -->
+      <div style="width:calc(50% - 40px);"></div>
+    </div>`;
+  });
+
+  html += `</div>`;
+  return wrap3D(html, 120 + events.length * 110);
+}
+
+// ── CYCLE ─────────────────────────────────────────────────────────────────────
+function makeCycle(steps: {label:string;desc?:string}[]): string {
+  const count = Math.min(steps.length, 6);
+  const size = 580;
+  const cx = size/2, cy = size/2, R = 200;
+
+  let html = `<div style="position:relative;width:${size}px;height:${size}px;margin:0 auto;">`;
+
+  // SVG arc connectors
+  let svg = `<svg style="position:absolute;inset:0;pointer-events:none;" viewBox="0 0 ${size} ${size}">`;
+  for (let i=0; i<count; i++) {
+    const a1 = (2*Math.PI*i/count)-Math.PI/2;
+    const a2 = (2*Math.PI*(i+1)/count)-Math.PI/2;
+    const x1 = cx+Math.cos(a1)*R, y1 = cy+Math.sin(a1)*R;
+    const x2 = cx+Math.cos(a2)*R, y2 = cy+Math.sin(a2)*R;
+    const am = (a1+a2)/2;
+    const cpx = cx+Math.cos(am)*(R+55), cpy = cy+Math.sin(am)*(R+55);
+    const p = PAL[i%PAL.length];
+    const delay = (0.3+i*0.15).toFixed(2);
+    const pLen = 350;
+    svg += `<path d="M${x1},${y1} Q${cpx},${cpy} ${x2},${y2}" fill="none"
+      stroke="${p.from}" stroke-width="3" stroke-linecap="round"
+      marker-end="url(#arr${i})" opacity="0.85"
+      stroke-dasharray="${pLen}" stroke-dashoffset="${pLen}">
+      <animate attributeName="stroke-dashoffset" from="${pLen}" to="0" dur="0.6s" begin="${delay}s" fill="freeze"/>
+    </path>
+    <defs><marker id="arr${i}" markerWidth="8" markerHeight="7" refX="7" refY="3.5" orient="auto">
+      <polygon points="0 0,8 3.5,0 7" fill="${p.from}"/>
+    </marker></defs>`;
+  }
+  svg += `</svg>`;
+  html += svg;
+
+  // Center hub
+  html += `<div style="position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);z-index:10;
+    animation:float 4s ease-in-out infinite,scaleIn 0.5s 0.1s both;
+    width:100px;height:100px;border-radius:50%;
+    background:linear-gradient(135deg,#6366f1,#a855f7);
+    box-shadow:0 0 50px rgba(139,92,246,0.6),0 12px 32px rgba(0,0,0,0.4),inset 0 1px 0 rgba(255,255,255,0.3);
+    display:flex;align-items:center;justify-content:center;">
+    <span style="color:white;font-size:11px;font-weight:800;text-align:center;">🔄 Cycle</span>
+  </div>`;
+
+  // Step nodes
+  steps.slice(0, count).forEach((step, i) => {
+    const angle = (2*Math.PI*i/count)-Math.PI/2;
+    const nx = cx + Math.cos(angle)*R;
+    const ny = cy + Math.sin(angle)*R;
+    const p = PAL[i%PAL.length];
+    const delay = (0.2+i*0.13).toFixed(2);
+    html += `<div class="node-3d" style="position:absolute;
+      left:${nx-72}px;top:${ny-36}px;width:144px;
+      animation:popIn 0.5s ${delay}s both;z-index:5;
+      padding:12px 14px;border-radius:16px;text-align:center;
+      background:linear-gradient(135deg,${p.from},${p.to});
+      box-shadow:0 8px 28px ${p.shadow},0 2px 8px rgba(0,0,0,0.35),inset 0 1px 0 rgba(255,255,255,0.2);
+      border:1px solid ${p.border};">
+      <div style="width:24px;height:24px;border-radius:50%;background:rgba(255,255,255,0.25);
+        margin:0 auto 6px;display:flex;align-items:center;justify-content:center;
+        font-size:11px;font-weight:900;color:white;">${i+1}</div>
+      <p style="color:white;font-size:11px;font-weight:700;margin:0 0 3px;line-height:1.3;">${step.label}</p>
+      ${step.desc ? `<p style="color:rgba(255,255,255,0.7);font-size:9px;margin:0;line-height:1.3;">${step.desc}</p>` : ""}
+    </div>`;
+  });
+
+  html += `</div>`;
+  return wrap3D(html, 640);
+}
+
+// ── HIERARCHY ─────────────────────────────────────────────────────────────────
+function makeHierarchy(root: string, children: {label:string;children?:string[]}[]): string {
+  const cols = Math.min(children.length, 5);
+  const colW = Math.max(160, Math.min(200, 900/cols));
+
+  let html = `<div style="text-align:center;">
+  <!-- Root -->
+  <div style="display:inline-block;animation:fadeUp 0.5s 0.1s both;margin-bottom:8px;">
+    <div class="node-3d" style="display:inline-flex;align-items:center;justify-content:center;
+      padding:16px 36px;border-radius:50px;
+      background:linear-gradient(135deg,#6366f1,#a855f7,#ec4899);
+      box-shadow:0 10px 40px rgba(139,92,246,0.55),0 4px 12px rgba(0,0,0,0.4),inset 0 1px 0 rgba(255,255,255,0.25);
+      border:1px solid rgba(255,255,255,0.2);">
+      <span style="color:white;font-size:15px;font-weight:800;">${root}</span>
+    </div>
+  </div>
+  <!-- Vertical connector from root -->
+  <div style="width:3px;height:28px;background:linear-gradient(to bottom,#8b5cf6,#6366f1);
+    margin:0 auto;border-radius:2px;"></div>
+  <!-- Horizontal bus -->
+  <div style="position:relative;display:flex;justify-content:center;gap:${Math.max(8,24-cols*2)}px;
+    padding-top:0;">
+    <!-- bus line -->
+    <div style="position:absolute;top:0;left:10%;right:10%;height:3px;
+      background:linear-gradient(to right,transparent,#8b5cf6,transparent);border-radius:2px;"></div>`;
+
+  children.slice(0, cols).forEach((child, i) => {
+    const p = PAL[(i+1)%PAL.length];
+    const delay = (0.25+i*0.1).toFixed(2);
+    html += `<div style="width:${colW}px;flex-shrink:0;animation:fadeUp 0.5s ${delay}s both;">
+      <!-- drop line -->
+      <div style="width:3px;height:20px;background:${p.from};margin:0 auto;border-radius:2px;"></div>
+      <!-- child card -->
+      <div class="node-3d" style="padding:12px 14px;border-radius:16px;margin-bottom:10px;
+        background:linear-gradient(135deg,${p.from},${p.to});
+        box-shadow:0 8px 28px ${p.shadow},0 2px 8px rgba(0,0,0,0.35),inset 0 1px 0 rgba(255,255,255,0.2);
+        border:1px solid ${p.border};">
+        <p style="color:white;font-size:12px;font-weight:700;margin:0;text-align:center;line-height:1.3;">${child.label}</p>
+      </div>
+      <!-- grandchildren -->
+      <div style="display:flex;flex-direction:column;gap:6px;align-items:center;">
+        ${(child.children??[]).slice(0,4).map((gc, j) => `
+        <div class="node-3d" style="width:90%;padding:8px 10px;border-radius:10px;
+          animation:popIn 0.4s ${(parseFloat(delay)+0.2+j*0.06).toFixed(2)}s both;
+          background:rgba(255,255,255,0.08);backdrop-filter:blur(8px);
+          border:1px solid ${p.border};text-align:center;">
+          <span style="color:rgba(255,255,255,0.88);font-size:10px;font-weight:500;line-height:1.3;">${gc}</span>
+        </div>`).join("")}
+      </div>
+    </div>`;
+  });
+
+  html += `</div></div>`;
+  return wrap3D(html, 420);
+}
+
+// ── COMPARISON ────────────────────────────────────────────────────────────────
+function makeComparison(items: {name:string;points:string[]}[]): string {
+  const cols = Math.min(items.length, 3);
+  const colW = cols === 2 ? 340 : 260;
+
+  let html = `<div style="display:flex;gap:16px;justify-content:center;flex-wrap:nowrap;">`;
+
+  items.slice(0, cols).forEach((item, i) => {
+    const p = PAL[i%PAL.length];
+    const delay = (i*0.15).toFixed(2);
+    const maxPts = Math.max(...items.map(it=>it.points.length));
+    const pts = [...item.points.slice(0, Math.min(item.points.length, 6))];
+
+    html += `<div class="node-3d" style="width:${colW}px;flex-shrink:0;border-radius:20px;overflow:hidden;
+      animation:fadeUp 0.55s ${delay}s both;
+      box-shadow:0 16px 48px ${p.shadow},0 4px 16px rgba(0,0,0,0.4);
+      border:1px solid ${p.border};">
+      <!-- Header -->
+      <div style="padding:20px;text-align:center;
+        background:linear-gradient(135deg,${p.from},${p.to});
+        border-bottom:1px solid ${p.border};
+        box-shadow:inset 0 1px 0 rgba(255,255,255,0.2);">
+        <div style="width:48px;height:48px;border-radius:50%;
+          background:rgba(255,255,255,0.2);margin:0 auto 10px;
+          display:flex;align-items:center;justify-content:center;
+          font-size:20px;box-shadow:0 4px 12px rgba(0,0,0,0.2);">
+          ${["🥇","🥈","🥉","⭐","💡","🔑"][i]||"•"}
+        </div>
+        <p style="color:white;font-size:15px;font-weight:800;margin:0;">${item.name}</p>
+      </div>
+      <!-- Points -->
+      <div style="background:rgba(255,255,255,0.05);backdrop-filter:blur(10px);">
+        ${pts.map((pt, j) => `
+        <div style="padding:12px 16px;border-bottom:1px solid rgba(255,255,255,0.06);
+          display:flex;align-items:flex-start;gap:10px;
+          animation:slideRight 0.4s ${(parseFloat(delay)+0.15+j*0.06).toFixed(2)}s both;
+          background:${j%2===0?"rgba(255,255,255,0.04)":"transparent"};">
+          <div style="width:22px;height:22px;border-radius:50%;flex-shrink:0;
+            background:linear-gradient(135deg,${p.from},${p.to});
+            display:flex;align-items:center;justify-content:center;margin-top:1px;
+            box-shadow:0 2px 8px ${p.shadow};">
+            <span style="color:white;font-size:11px;font-weight:900;">✓</span>
+          </div>
+          <span style="color:rgba(255,255,255,0.85);font-size:11px;line-height:1.45;">${pt}</span>
+        </div>`).join("")}
+      </div>
+    </div>`;
+  });
+
+  html += `</div>`;
+  return wrap3D(html, 480);
+}
+
+// ── AI prompts / validators / makers (unchanged structure) ─────────────────────
+const SYS = `You are an expert diagram data extractor. Return ONLY valid JSON — zero markdown fences, zero text outside the JSON. Node labels must be concise (2-5 words). Sub-items max 50 chars. Use ACCURATE content from the topic.`;
+
+const PROMPTS: Record<string, (t:string)=>string> = {
+  flowchart: t=>`Create a FLOWCHART for: "${t}"\nReturn JSON: {"nodes":[{"id":"1","label":"Start","type":"start"},{"id":"2","label":"Step","type":"process"},{"id":"3","label":"Decision?","type":"decision"},{"id":"4","label":"Yes path","type":"process"},{"id":"5","label":"No path","type":"process"},{"id":"6","label":"End","type":"end"}],"edges":[{"from":"1","to":"2"},{"from":"2","to":"3"},{"from":"3","to":"4","label":"Yes"},{"from":"3","to":"5","label":"No"},{"from":"4","to":"6"},{"from":"5","to":"6"}]}\nRULES: 5-9 nodes. Include a decision node. Replace ALL placeholders with accurate labels from "${t}".`,
+  mindmap: t=>`Create a MIND MAP for: "${t}"\nReturn JSON: {"center":"Core Topic","branches":[{"label":"Branch 1","items":["item","item","item"]},{"label":"Branch 2","items":["item","item","item"]},{"label":"Branch 3","items":["item","item","item"]},{"label":"Branch 4","items":["item","item"]},{"label":"Branch 5","items":["item","item"]}]}\nRULES: 4-6 branches, 2-4 items each. All content accurate and specific to "${t}".`,
+  timeline: t=>`Create a TIMELINE for: "${t}"\nReturn JSON: {"events":[{"year":"Period","title":"Event Title","desc":"Short description max 55 chars"}]}\nRULES: 5-8 events chronologically. Title 2-4 words. All accurate for "${t}".`,
+  cycle: t=>`Create a CYCLE DIAGRAM for: "${t}"\nReturn JSON: {"steps":[{"label":"Step Name","desc":"What happens, max 45 chars"}]}\nRULES: 4-6 steps forming a CLOSED LOOP in correct order. All accurate for "${t}".`,
+  hierarchy: t=>`Create a HIERARCHY for: "${t}"\nReturn JSON: {"root":"Top Concept","children":[{"label":"Category","children":["item","item","item"]},{"label":"Category","children":["item","item"]},{"label":"Category","children":["item","item"]},{"label":"Category","children":["item","item"]}]}\nRULES: 3-5 categories, 2-4 leaf items each. All specific and accurate for "${t}".`,
+  comparison: t=>`Create a COMPARISON for: "${t}"\nReturn JSON: {"items":[{"name":"Option A","points":["point","point","point","point","point"]},{"name":"Option B","points":["point","point","point","point","point"]},{"name":"Option C","points":["point","point","point","point","point"]}]}\nRULES: 2-3 real options from "${t}". Exactly 5 points each ≤28 chars.`,
 };
 
-const VALIDATORS: Record<string, (d: unknown) => boolean> = {
-  flowchart:  d => Array.isArray((d as {nodes:unknown[]}).nodes) && (d as {nodes:unknown[]}).nodes.length >= 3,
-  mindmap:    d => typeof (d as {center:string}).center === "string" && Array.isArray((d as {branches:unknown[]}).branches) && (d as {branches:unknown[]}).branches.length >= 3,
-  timeline:   d => Array.isArray((d as {events:unknown[]}).events) && (d as {events:unknown[]}).events.length >= 3,
-  cycle:      d => Array.isArray((d as {steps:unknown[]}).steps) && (d as {steps:unknown[]}).steps.length >= 3,
-  hierarchy:  d => typeof (d as {root:string}).root === "string" && Array.isArray((d as {children:unknown[]}).children),
-  comparison: d => Array.isArray((d as {items:unknown[]}).items) && (d as {items:unknown[]}).items.length >= 2,
+const VALIDATORS: Record<string,(d:unknown)=>boolean> = {
+  flowchart:  d=>Array.isArray((d as {nodes:unknown[]}).nodes)&&(d as {nodes:unknown[]}).nodes.length>=3,
+  mindmap:    d=>typeof (d as {center:string}).center==="string"&&Array.isArray((d as {branches:unknown[]}).branches)&&(d as {branches:unknown[]}).branches.length>=3,
+  timeline:   d=>Array.isArray((d as {events:unknown[]}).events)&&(d as {events:unknown[]}).events.length>=3,
+  cycle:      d=>Array.isArray((d as {steps:unknown[]}).steps)&&(d as {steps:unknown[]}).steps.length>=3,
+  hierarchy:  d=>typeof (d as {root:string}).root==="string"&&Array.isArray((d as {children:unknown[]}).children),
+  comparison: d=>Array.isArray((d as {items:unknown[]}).items)&&(d as {items:unknown[]}).items.length>=2,
 };
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-const MAKERS: Record<string, (d: any) => string> = {
-  flowchart:  d => makeFlowchart(d.nodes, d.edges),
-  mindmap:    d => makeMindMap(d.center, d.branches),
-  timeline:   d => makeTimeline(d.events),
-  cycle:      d => makeCycle(d.steps),
-  hierarchy:  d => makeHierarchy(d.root, d.children),
-  comparison: d => makeComparison(d.items),
+const MAKERS: Record<string,(d:any)=>string> = {
+  flowchart:  d=>makeFlowchart(d.nodes,d.edges),
+  mindmap:    d=>makeMindMap(d.center,d.branches),
+  timeline:   d=>makeTimeline(d.events),
+  cycle:      d=>makeCycle(d.steps),
+  hierarchy:  d=>makeHierarchy(d.root,d.children),
+  comparison: d=>makeComparison(d.items),
 };
 
+// ── Main component ─────────────────────────────────────────────────────────────
 const ImageGenerator = () => {
   const navigate = useNavigate();
   const [theory, setTheory] = useState("");
   const [diagramType, setDiagramType] = useState("flowchart");
-  const [svgContent, setSvgContent] = useState<string | null>(null);
+  const [htmlContent, setHtmlContent] = useState<string|null>(null);
   const [isLoading, setIsLoading] = useState(false);
-  const [zoom, setZoom] = useState(1);
   const [isFullscreen, setIsFullscreen] = useState(false);
-  const containerRef = useRef<HTMLDivElement>(null);
+  const outputRef = useRef<HTMLDivElement>(null);
 
   const safeParseJSON = useCallback((raw: string) => {
-    const clean = raw.replace(/```json\s*/gi, "").replace(/```/g, "").replace(/[\u200B-\u200D\uFEFF]/g, "").trim();
-    const s1 = clean.indexOf("{"), s2 = clean.indexOf("[");
-    const e1 = clean.lastIndexOf("}"), e2 = clean.lastIndexOf("]");
-    if (s2 !== -1 && e2 !== -1 && (s2 < s1 || s1 === -1)) return JSON.parse(clean.slice(s2, e2 + 1));
-    if (s1 !== -1 && e1 !== -1) return JSON.parse(clean.slice(s1, e1 + 1));
-    throw new Error("No JSON in response.");
-  }, []);
+    const clean = raw.replace(/```json\s*/gi,"").replace(/```/g,"").replace(/[\u200B-\u200D\uFEFF]/g,"").trim();
+    const s1=clean.indexOf("{"),s2=clean.indexOf("[");
+    const e1=clean.lastIndexOf("}"),e2=clean.lastIndexOf("]");
+    if (s2!==-1&&e2!==-1&&(s2<s1||s1===-1)) return JSON.parse(clean.slice(s2,e2+1));
+    if (s1!==-1&&e1!==-1) return JSON.parse(clean.slice(s1,e1+1));
+    throw new Error("No JSON found in response.");
+  },[]);
 
-  const handleGenerate = async () => {
-    const trimmed = theory.trim();
-    if (!trimmed) { toast.error("Please enter a concept or theory."); return; }
-    setIsLoading(true); setSvgContent(null); setZoom(1);
+  const generate = async (topic: string, type: string) => {
+    if (!topic.trim()) { toast.error("Please enter a concept or theory."); return; }
+    setIsLoading(true); setHtmlContent(null);
     try {
-      const raw = await callAI(PROMPTS[diagramType](trimmed), SYS, 0.2, 1600);
+      const raw = await callAI(PROMPTS[type](topic), SYS, 0.2, 1600);
       const j = safeParseJSON(raw);
-      if (!VALIDATORS[diagramType](j)) throw new Error("AI returned incomplete data. Please try again.");
-      setSvgContent(MAKERS[diagramType](j));
-      toast.success("Diagram generated! ✨");
+      if (!VALIDATORS[type](j)) throw new Error("AI returned incomplete data. Please try again.");
+      setHtmlContent(MAKERS[type](j));
+      toast.success("3D diagram ready! ✨");
     } catch (err: unknown) {
       toast.error(`Failed: ${err instanceof Error ? err.message : "Unknown error"}`);
     } finally { setIsLoading(false); }
   };
 
-  const downloadSVG = () => {
-    if (!svgContent) return;
-    const blob = new Blob([svgContent], { type: "image/svg+xml" });
-    const a = Object.assign(document.createElement("a"), { href: URL.createObjectURL(blob), download: `diagram-${diagramType}.svg` });
-    a.click(); URL.revokeObjectURL(a.href);
-  };
-
-  const downloadPNG = () => {
-    if (!svgContent) return;
-    const img = new Image();
-    const blob = new Blob([svgContent], { type: "image/svg+xml" });
-    const url = URL.createObjectURL(blob);
-    img.onload = () => {
-      const canvas = document.createElement("canvas");
-      canvas.width = img.width * 2; canvas.height = img.height * 2;
-      const ctx = canvas.getContext("2d")!;
-      ctx.scale(2, 2);
-      ctx.fillStyle = "#fafbff"; ctx.fillRect(0, 0, img.width, img.height);
-      ctx.drawImage(img, 0, 0);
-      const a = Object.assign(document.createElement("a"), { href: canvas.toDataURL("image/png"), download: `diagram-${diagramType}.png` });
-      a.click(); URL.revokeObjectURL(url);
-    };
-    img.src = url;
+  const downloadPNG = async () => {
+    if (!outputRef.current || !htmlContent) return;
+    try {
+      const { default: html2canvas } = await import("html2canvas");
+      const canvas = await html2canvas(outputRef.current, { scale:2, backgroundColor:"#0f0c29", useCORS:true, logging:false });
+      const a = document.createElement("a");
+      a.href = canvas.toDataURL("image/png");
+      a.download = `diagram-${diagramType}.png`;
+      a.click();
+      toast.success("PNG downloaded!");
+    } catch {
+      toast.error("PNG export failed — try right-clicking and saving the image.");
+    }
   };
 
   return (
@@ -611,156 +600,117 @@ const ImageGenerator = () => {
           <Button variant="ghost" onClick={() => navigate("/dashboard")} className="text-sm">
             <ArrowLeft className="mr-2 h-4 w-4" /> Dashboard
           </Button>
-          <h1 className="text-base font-bold dark:text-white">Theory to Visual</h1>
+          <h1 className="text-base font-bold dark:text-white">Theory to Visual <span className="text-xs text-indigo-500 font-semibold">3D</span></h1>
         </div>
       </header>
 
       <main className="container mx-auto max-w-6xl px-4 py-8">
         <div className="grid lg:grid-cols-5 gap-6">
 
-          {/* ── Input panel (2 cols) ── */}
+          {/* Input panel */}
           <Card className="lg:col-span-2 shadow-md flex flex-col dark:bg-gray-900 dark:border-gray-700">
             <CardHeader className="pb-3">
               <div className="flex items-center gap-2 text-primary">
                 <Sparkles className="w-4 h-4" />
                 <CardTitle className="text-lg">Your Theory</CardTitle>
               </div>
-              <CardDescription className="text-xs pt-1">Describe the concept, process, or topic.</CardDescription>
+              <CardDescription className="text-xs pt-1">Describe the concept, process, or topic to visualise.</CardDescription>
             </CardHeader>
-
             <CardContent className="flex-grow space-y-4">
               <Textarea
-                placeholder={`e.g. "The water cycle: evaporation → condensation → precipitation → runoff"\nor "Photosynthesis process"\nor "OSI model layers"`}
-                className="h-[160px] text-sm resize-none dark:bg-gray-800 dark:border-gray-600"
-                value={theory}
-                onChange={e => setTheory(e.target.value)}
-                disabled={isLoading}
+                placeholder={`e.g. "The water cycle"\n"Photosynthesis process"\n"OSI model layers"\n"French Revolution events"`}
+                className="h-[140px] text-sm resize-none dark:bg-gray-800 dark:border-gray-600"
+                value={theory} onChange={e=>setTheory(e.target.value)} disabled={isLoading}
               />
-
               <div>
                 <p className="text-xs font-semibold text-muted-foreground mb-2 uppercase tracking-wider">Diagram Type</p>
                 <div className="grid grid-cols-2 gap-2">
-                  {DIAGRAM_TYPES.map(dt => (
-                    <button key={dt.value} onClick={() => setDiagramType(dt.value)} title={dt.hint}
+                  {DIAGRAM_TYPES.map(dt=>(
+                    <button key={dt.value} onClick={()=>setDiagramType(dt.value)} title={dt.hint}
                       className={`px-3 py-2.5 rounded-xl border-2 text-xs font-semibold transition text-left ${
-                        diagramType === dt.value
+                        diagramType===dt.value
                           ? "border-primary bg-primary/10 text-primary dark:bg-primary/20"
                           : "border-border dark:border-gray-700 hover:border-primary/40 text-muted-foreground dark:text-gray-400"
-                      }`}>
-                      {dt.label}
-                    </button>
+                      }`}>{dt.label}</button>
                   ))}
                 </div>
-                <p className="text-xs text-muted-foreground mt-2 italic">
-                  {DIAGRAM_TYPES.find(d => d.value === diagramType)?.hint}
-                </p>
+                <p className="text-xs text-muted-foreground mt-2 italic">{DIAGRAM_TYPES.find(d=>d.value===diagramType)?.hint}</p>
               </div>
             </CardContent>
-
             <CardFooter className="flex gap-2">
               <Button className="flex-1 bg-gradient-to-r from-primary to-secondary text-white font-bold"
-                onClick={handleGenerate} disabled={isLoading || !theory.trim()}>
-                {isLoading
-                  ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" />Generating…</>
-                  : <><Sparkles className="w-4 h-4 mr-2" />Generate</>}
+                onClick={()=>generate(theory,diagramType)} disabled={isLoading||!theory.trim()}>
+                {isLoading ? <><Loader2 className="w-4 h-4 mr-2 animate-spin"/>Generating…</> : <><Sparkles className="w-4 h-4 mr-2"/>Generate 3D</>}
               </Button>
-              {svgContent && !isLoading && (
-                <Button variant="outline" onClick={() => { setSvgContent(null); setZoom(1); }} className="dark:border-gray-600">
-                  <RefreshCw className="w-4 h-4" />
+              {htmlContent&&!isLoading&&(
+                <Button variant="outline" onClick={()=>setHtmlContent(null)} className="dark:border-gray-600">
+                  <RefreshCw className="w-4 h-4"/>
                 </Button>
               )}
             </CardFooter>
           </Card>
 
-          {/* ── Output panel (3 cols) ── */}
-          <Card className={`lg:col-span-3 shadow-md flex flex-col dark:bg-gray-900 dark:border-gray-700 ${isFullscreen ? "fixed inset-3 z-50" : ""}`}>
+          {/* Output panel */}
+          <Card className={`lg:col-span-3 shadow-md flex flex-col dark:bg-gray-900 dark:border-gray-700 ${isFullscreen?"fixed inset-3 z-50":""}`}>
             <CardHeader className="pb-2 flex flex-row items-center justify-between space-y-0">
               <div>
-                <CardTitle className="text-base dark:text-white">Generated Diagram</CardTitle>
-                <CardDescription className="text-xs">Premium AI-generated SVG with gradients & shadows</CardDescription>
+                <CardTitle className="text-base dark:text-white">3D Animated Diagram</CardTitle>
+                <CardDescription className="text-xs">CSS 3D transforms · Entrance animations · Hover depth</CardDescription>
               </div>
-              {svgContent && !isLoading && (
-                <div className="flex items-center gap-1.5 flex-wrap justify-end">
-                  <Button variant="outline" size="sm" onClick={() => setZoom(z => Math.max(0.25, z - 0.15))} className="h-8 w-8 p-0 dark:border-gray-600"><ZoomOut className="w-3.5 h-3.5" /></Button>
-                  <span className="text-xs text-muted-foreground w-9 text-center">{Math.round(zoom * 100)}%</span>
-                  <Button variant="outline" size="sm" onClick={() => setZoom(z => Math.min(3, z + 0.15))} className="h-8 w-8 p-0 dark:border-gray-600"><ZoomIn className="w-3.5 h-3.5" /></Button>
-                  <Button variant="outline" size="sm" onClick={() => setZoom(1)} className="h-8 px-2 text-xs dark:border-gray-600">1:1</Button>
-                  <Button variant="outline" size="sm" onClick={() => setIsFullscreen(f => !f)} className="h-8 w-8 p-0 dark:border-gray-600">
-                    {isFullscreen ? <Minimize2 className="w-3.5 h-3.5" /> : <Maximize2 className="w-3.5 h-3.5" />}
+              {htmlContent&&!isLoading&&(
+                <div className="flex items-center gap-1.5">
+                  <Button variant="outline" size="sm" onClick={()=>setIsFullscreen(f=>!f)} className="h-8 w-8 p-0 dark:border-gray-600">
+                    {isFullscreen ? <Minimize2 className="w-3.5 h-3.5"/> : <Maximize2 className="w-3.5 h-3.5"/>}
                   </Button>
-                  <Button variant="outline" size="sm" onClick={downloadSVG} className="h-8 px-2.5 dark:border-gray-600">
-                    <Download className="w-3.5 h-3.5 mr-1" />SVG
-                  </Button>
-                  <Button variant="outline" size="sm" onClick={downloadPNG} className="h-8 px-2.5 dark:border-gray-600 text-indigo-600 dark:text-indigo-400 border-indigo-200 dark:border-indigo-800">
-                    <FileImage className="w-3.5 h-3.5 mr-1" />PNG
+                  <Button variant="outline" size="sm" onClick={downloadPNG} className="h-8 px-2.5 dark:border-gray-600 text-indigo-600 dark:text-indigo-400">
+                    <FileImage className="w-3.5 h-3.5 mr-1"/>PNG
                   </Button>
                 </div>
               )}
             </CardHeader>
-
-            <CardContent className="flex-grow p-3 min-h-[440px] overflow-hidden">
-              <div ref={containerRef}
-                className="w-full h-full min-h-[420px] bg-gradient-to-br from-slate-50 to-blue-50/30 dark:from-gray-800 dark:to-gray-900 rounded-2xl border border-dashed border-border/50 dark:border-gray-700 overflow-auto flex items-start justify-center p-3">
-                {svgContent && !isLoading && (
-                  <div className="w-full transition-transform duration-200"
-                    style={{ transform: `scale(${zoom})`, transformOrigin: "top center" }}
-                    dangerouslySetInnerHTML={{ __html: svgContent }} />
-                )}
-                {isLoading && (
-                  <div className="flex flex-col items-center justify-center h-full py-16 gap-4">
-                    <div className="relative">
-                      <div className="w-16 h-16 rounded-full border-4 border-indigo-100 border-t-indigo-500 animate-spin" />
-                      <Sparkles className="absolute inset-0 m-auto w-6 h-6 text-indigo-500" />
-                    </div>
-                    <p className="text-sm font-semibold text-muted-foreground">Crafting your diagram…</p>
-                    <p className="text-xs text-muted-foreground/60">AI is building your visual</p>
+            <CardContent className="flex-grow p-3 min-h-[480px] overflow-auto">
+              {isLoading && (
+                <div className="flex flex-col items-center justify-center h-full py-20 gap-4">
+                  <div className="relative">
+                    <div className="w-16 h-16 rounded-full border-4 border-indigo-100 border-t-indigo-500 animate-spin"/>
+                    <Sparkles className="absolute inset-0 m-auto w-6 h-6 text-indigo-500"/>
                   </div>
-                )}
-                {!svgContent && !isLoading && (
-                  <div className="flex flex-col items-center justify-center h-full py-16 gap-3 text-center">
-                    <div className="w-20 h-20 rounded-2xl bg-gradient-to-br from-indigo-100 to-purple-100 dark:from-indigo-950 dark:to-purple-950 flex items-center justify-center">
-                      <BookOpen className="w-10 h-10 text-indigo-300 dark:text-indigo-600" strokeWidth={1.5} />
-                    </div>
-                    <p className="text-sm font-medium text-muted-foreground">Your diagram will appear here</p>
-                    <p className="text-xs text-muted-foreground/60">Choose a type, enter a topic, click Generate</p>
+                  <p className="text-sm font-semibold text-muted-foreground">Building your 3D diagram…</p>
+                </div>
+              )}
+              {htmlContent&&!isLoading&&(
+                <div ref={outputRef} dangerouslySetInnerHTML={{__html: htmlContent}}/>
+              )}
+              {!htmlContent&&!isLoading&&(
+                <div className="flex flex-col items-center justify-center h-full py-20 gap-3 text-center">
+                  <div className="w-20 h-20 rounded-2xl bg-gradient-to-br from-indigo-100 to-purple-100 dark:from-indigo-950 dark:to-purple-950 flex items-center justify-center">
+                    <BookOpen className="w-10 h-10 text-indigo-300 dark:text-indigo-600" strokeWidth={1.5}/>
                   </div>
-                )}
-              </div>
+                  <p className="text-sm font-medium text-muted-foreground">Your 3D diagram will appear here</p>
+                  <p className="text-xs text-muted-foreground/60">Click an example below or enter your own topic</p>
+                </div>
+              )}
             </CardContent>
           </Card>
         </div>
 
-        {/* Examples row */}
+        {/* Example tiles — auto-generate */}
         <div className="mt-6 grid sm:grid-cols-3 gap-3">
           {[
-            { icon:"🔀", topic:"Login authentication process", type:"flowchart" },
-            { icon:"🧠", topic:"Machine learning concepts", type:"mindmap" },
-            { icon:"📅", topic:"History of the Internet", type:"timeline" },
-            { icon:"🔄", topic:"Water cycle", type:"cycle" },
-            { icon:"🏗️", topic:"Types of operating systems", type:"hierarchy" },
-            { icon:"⚖️", topic:"SQL vs NoSQL vs NewSQL", type:"comparison" },
-          ].map(ex => (
-            <button key={ex.topic} onClick={async () => {
-                setTheory(ex.topic);
-                setDiagramType(ex.type);
-                // Small tick to let state settle, then auto-generate
-                await new Promise(r => setTimeout(r, 30));
-                setIsLoading(true); setSvgContent(null); setZoom(1);
-                try {
-                  const raw = await callAI(PROMPTS[ex.type](ex.topic), SYS, 0.2, 1600);
-                  const j = safeParseJSON(raw);
-                  if (!VALIDATORS[ex.type](j)) throw new Error("Invalid data");
-                  setSvgContent(MAKERS[ex.type](j));
-                  toast.success("Diagram generated! ✨");
-                } catch (err: unknown) {
-                  toast.error(`Failed: ${err instanceof Error ? err.message : "Unknown"}`);
-                } finally { setIsLoading(false); }
-              }}
-              className="flex items-center gap-3 p-3 bg-white dark:bg-gray-900 border dark:border-gray-700 rounded-xl shadow-sm hover:shadow-md hover:border-indigo-300 dark:hover:border-indigo-700 hover:-translate-y-0.5 transition-all text-left group">
+            {icon:"🔀",topic:"User login authentication flow",type:"flowchart"},
+            {icon:"🧠",topic:"Machine learning concepts",type:"mindmap"},
+            {icon:"📅",topic:"History of the Internet",type:"timeline"},
+            {icon:"🔄",topic:"Water cycle in nature",type:"cycle"},
+            {icon:"🏗️",topic:"Types of operating systems",type:"hierarchy"},
+            {icon:"⚖️",topic:"SQL vs NoSQL vs NewSQL",type:"comparison"},
+          ].map(ex=>(
+            <button key={ex.topic} onClick={()=>{ setTheory(ex.topic); setDiagramType(ex.type); generate(ex.topic,ex.type); }}
+              disabled={isLoading}
+              className="flex items-center gap-3 p-3 bg-white dark:bg-gray-900 border dark:border-gray-700 rounded-xl shadow-sm hover:shadow-md hover:border-indigo-300 dark:hover:border-indigo-700 hover:-translate-y-0.5 transition-all text-left group disabled:opacity-50">
               <span className="text-2xl shrink-0">{ex.icon}</span>
               <div>
                 <p className="text-xs font-semibold text-slate-700 dark:text-slate-200 group-hover:text-indigo-600 dark:group-hover:text-indigo-400 transition-colors">{ex.topic}</p>
-                <p className="text-[10px] text-muted-foreground capitalize">{ex.type}</p>
+                <p className="text-[10px] text-muted-foreground capitalize">{ex.type} · 3D</p>
               </div>
             </button>
           ))}
