@@ -93,6 +93,20 @@ function getNextDue(cards: CardState[]): number {
   return idx !== -1 ? idx : 0;
 }
 
+function nextDueLabel(cards: CardState[]): string {
+  const future = cards.filter(c => c.due > Date.now());
+  if (!future.length) return "";
+  const soonest = Math.min(...future.map(c => c.due));
+  const diff = soonest - Date.now();
+  const mins = Math.round(diff / 60_000);
+  if (mins < 1) return "in less than a minute";
+  if (mins < 60) return `in ${mins} minute${mins !== 1 ? "s" : ""}`;
+  const hrs = Math.round(mins / 60);
+  if (hrs < 24) return `in ${hrs} hour${hrs !== 1 ? "s" : ""}`;
+  const days = Math.round(hrs / 24);
+  return `in ${days} day${days !== 1 ? "s" : ""}`;
+}
+
 // ── Export modal ────────────────────────────────────────────────────────────
 function ExportModal({ onClose, onPDF, onCSV }: { onClose: () => void; onPDF: () => void; onCSV: () => void; }) {
   return (
@@ -478,8 +492,13 @@ const FlashCardPage: React.FC = () => {
             <p className="text-gray-500 dark:text-gray-400 mb-1">
               You got <span className="font-bold text-green-600">{sessionCorrect}</span> of <span className="font-bold">{sessionTotal}</span> correct.
             </p>
-            <p className="text-sm text-gray-400 dark:text-gray-500 mb-8">
-              Cards are scheduled — come back later to review due ones.
+            {nextDueLabel(cards) && (
+              <p className="text-sm text-gray-400 dark:text-gray-500 mb-2">
+                Next card due <span className="font-semibold text-indigo-500">{nextDueLabel(cards)}</span>.
+              </p>
+            )}
+            <p className="text-xs text-gray-400 dark:text-gray-500 mb-8">
+              Spaced repetition will resurface cards at the right time.
             </p>
             <div className="flex flex-wrap justify-center gap-3">
               <Button onClick={() => { setIndex(getNextDue(cards)); setViewState("studying"); setSessionCorrect(0); setSessionTotal(0); }}>

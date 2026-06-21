@@ -740,7 +740,22 @@ const ImageGenerator = () => {
             { icon:"🏗️", topic:"Types of operating systems", type:"hierarchy" },
             { icon:"⚖️", topic:"SQL vs NoSQL vs NewSQL", type:"comparison" },
           ].map(ex => (
-            <button key={ex.topic} onClick={() => { setTheory(ex.topic); setDiagramType(ex.type); }}
+            <button key={ex.topic} onClick={async () => {
+                setTheory(ex.topic);
+                setDiagramType(ex.type);
+                // Small tick to let state settle, then auto-generate
+                await new Promise(r => setTimeout(r, 30));
+                setIsLoading(true); setSvgContent(null); setZoom(1);
+                try {
+                  const raw = await callAI(PROMPTS[ex.type](ex.topic), SYS, 0.2, 1600);
+                  const j = safeParseJSON(raw);
+                  if (!VALIDATORS[ex.type](j)) throw new Error("Invalid data");
+                  setSvgContent(MAKERS[ex.type](j));
+                  toast.success("Diagram generated! ✨");
+                } catch (err: unknown) {
+                  toast.error(`Failed: ${err instanceof Error ? err.message : "Unknown"}`);
+                } finally { setIsLoading(false); }
+              }}
               className="flex items-center gap-3 p-3 bg-white dark:bg-gray-900 border dark:border-gray-700 rounded-xl shadow-sm hover:shadow-md hover:border-indigo-300 dark:hover:border-indigo-700 hover:-translate-y-0.5 transition-all text-left group">
               <span className="text-2xl shrink-0">{ex.icon}</span>
               <div>

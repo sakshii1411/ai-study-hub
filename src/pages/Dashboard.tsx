@@ -161,6 +161,11 @@ const Dashboard = () => {
         </div>
 
         <div className="grid lg:grid-cols-4 gap-6">
+          {/* Sidebar: Pomodoro — top on mobile, right on desktop */}
+          <div className="lg:col-span-1 lg:order-last order-first">
+            <Pomodoro />
+          </div>
+
           {/* Tool grid — takes 3 cols */}
           <div className="lg:col-span-3">
             <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-5">
@@ -180,11 +185,6 @@ const Dashboard = () => {
                 </button>
               ))}
             </div>
-          </div>
-
-          {/* Sidebar: Pomodoro */}
-          <div className="lg:col-span-1">
-            <Pomodoro />
           </div>
         </div>
 

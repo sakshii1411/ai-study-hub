@@ -157,7 +157,10 @@ const MCQPage: React.FC = () => {
     try {
       const content = extractedText || topic;
       const generated = await generateMCQs(content, numQuestions, questions.map(q => q.question));
-      setQuestions(generated); startQuiz();
+      // Save a fresh session record for the new round
+      setQuestions(generated);
+      setQIndex(0); setScore(0); setSelected(null);
+      setQuizState("answering"); setFeedbackStatus(null); setScreen("quiz");
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : "Failed to generate more questions.");
     } finally { setIsGenerating(false); }

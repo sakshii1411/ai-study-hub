@@ -16,7 +16,7 @@ import { toast } from "sonner";
 import { clsx } from "clsx";
 import { twMerge } from "tailwind-merge";
 import { cva, type VariantProps } from "class-variance-authority";
-import { callAI, callAIJson } from "@/lib/aiClient";
+import { callAI, callAIJson, callAIStream } from "@/lib/aiClient";
 import { MarkdownRenderer } from "@/components/MarkdownRenderer";
 import { extractFileText } from "@/lib/extractFileText";
 import RealMindMap from "@/components/RealMindMap";
@@ -136,19 +136,20 @@ const TheoryMemorizer: React.FC = () => {
   };
 
   const generateMnemonic = async () => {
-    setIsLoading(true); stopSpeech();
+    setIsLoading(true); stopSpeech(); setMnemonicResult("");
     try {
-      const result = await callAI(
+      let accumulated = "";
+      await callAIStream(
         `Create a memorable mnemonic, acronym, or memory aid for the following content.
 Include: a catchy acronym or phrase, a short story or visual association, and key points to remember.
 Use clean Markdown formatting with ## headings and bullet points.
 
 CONTENT:
 ${inputText.slice(0, 20000)}`,
+        (chunk) => { accumulated += chunk; setMnemonicResult(accumulated); },
         "You are an expert memory coach. Create highly memorable, creative memory aids. Use Markdown only.",
         0.8, 2000
       );
-      setMnemonicResult(result);
     } catch (err: unknown) {
       toast.error(err instanceof Error ? err.message : "Generation failed.");
     } finally { setIsLoading(false); }
@@ -206,9 +207,10 @@ JSON only:`;
   };
 
   const generateExplanation = async () => {
-    setIsLoading(true); stopSpeech();
+    setIsLoading(true); stopSpeech(); setExplanationResult("");
     try {
-      const result = await callAI(
+      let accumulated = "";
+      await callAIStream(
         `Explain the following content clearly and professionally for a student.
 
 FORMAT RULES — FOLLOW EXACTLY:
@@ -223,10 +225,10 @@ FORMAT RULES — FOLLOW EXACTLY:
 
 CONTENT:
 ${inputText.slice(0, 20000)}`,
+        (chunk) => { accumulated += chunk; setExplanationResult(accumulated); },
         "You are a professional academic teacher. Always use clean Markdown with proper ## headings, - bullet points, and **bold** key terms. Never output raw unformatted paragraphs. Never use === or --- separator lines.",
         0.7, 2500
       );
-      setExplanationResult(result);
     } catch (err: unknown) {
       toast.error(err instanceof Error ? err.message : "Generation failed.");
     } finally { setIsLoading(false); }

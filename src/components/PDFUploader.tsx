@@ -93,16 +93,16 @@ export const PDFUploader: React.FC<PDFUploaderProps> = ({
   }, [processFile]);
 
   const borderColor =
-    status === "done" ? "border-green-400" :
-    status === "error" ? "border-red-400" :
-    dragOver ? "border-blue-400" :
-    "border-slate-300";
+    status === "done" ? "border-green-400 dark:border-green-600" :
+    status === "error" ? "border-red-400 dark:border-red-600" :
+    dragOver ? "border-blue-400 dark:border-blue-600" :
+    "border-slate-300 dark:border-gray-600";
 
   const bgColor =
-    status === "done" ? "bg-green-50" :
+    status === "done" ? "bg-green-50 dark:bg-green-950" :
     status === "error" ? "bg-red-50" :
-    dragOver ? "bg-blue-50" :
-    "bg-slate-50";
+    dragOver ? "bg-blue-50 dark:bg-blue-950" :
+    "bg-slate-50 dark:bg-gray-800";
 
   // Stage label with friendly descriptions
   const stageLabel = (() => {
@@ -124,7 +124,7 @@ export const PDFUploader: React.FC<PDFUploaderProps> = ({
         {(status === "done" || status === "error") && (
           <button
             onClick={reset}
-            className="absolute top-2 right-2 text-slate-400 hover:text-slate-600 transition rounded-full p-1 hover:bg-slate-100"
+            className="absolute top-2 right-2 text-slate-400 hover:text-slate-600 transition rounded-full p-1 hover:bg-slate-100 dark:hover:bg-gray-700"
             title="Remove file and try again"
           >
             <X className="h-4 w-4" />
@@ -141,22 +141,22 @@ export const PDFUploader: React.FC<PDFUploaderProps> = ({
           <div className="text-center w-full">
             {status === "idle" && (
               <>
-                <p className="text-sm font-semibold text-slate-700">
+                <p className="text-sm font-semibold text-slate-700 dark:text-slate-200">
                   {compact ? "Click or drag & drop" : "Click to upload or drag & drop"}
                 </p>
-                <p className="text-xs text-slate-400 mt-0.5">PDF, TXT, DOCX, MD · max 20 MB</p>
+                <p className="text-xs text-slate-400 dark:text-slate-500">PDF, TXT, DOCX, MD · max 20 MB</p>
               </>
             )}
             {status === "processing" && (
               <>
-                <p className="text-sm font-semibold text-blue-700">{stageLabel}</p>
+                <p className="text-sm font-semibold text-blue-700 dark:text-blue-300">{stageLabel}</p>
                 <p className="text-xs text-slate-500 mt-0.5 truncate max-w-xs mx-auto">{file?.name}</p>
               </>
             )}
             {status === "done" && (
               <>
-                <p className="text-sm font-semibold text-green-700">{methodLabel}</p>
-                <p className="text-xs text-slate-500 mt-0.5">
+                <p className="text-sm font-semibold text-green-700 dark:text-green-400">{methodLabel}</p>
+                <p className="text-xs text-slate-500 dark:text-slate-400">
                   <FileText className="inline h-3 w-3 mr-0.5" />
                   {file?.name}
                 </p>
@@ -167,7 +167,7 @@ export const PDFUploader: React.FC<PDFUploaderProps> = ({
             )}
             {status === "error" && (
               <>
-                <p className="text-sm font-semibold text-red-700">Extraction failed</p>
+                <p className="text-sm font-semibold text-red-700 dark:text-red-400">Extraction failed</p>
                 <p className="text-xs text-slate-500 mt-0.5 truncate max-w-xs mx-auto">{file?.name}</p>
               </>
             )}
@@ -176,7 +176,7 @@ export const PDFUploader: React.FC<PDFUploaderProps> = ({
           {/* Progress bar */}
           {status === "processing" && (
             <div className="w-full max-w-xs">
-              <div className="w-full bg-slate-200 rounded-full h-2 overflow-hidden">
+              <div className="w-full bg-slate-200 dark:bg-gray-700 rounded-full h-2 overflow-hidden">
                 <div
                   className="bg-blue-500 h-full rounded-full transition-all duration-500 ease-out"
                   style={{ width: `${pct}%` }}
@@ -200,7 +200,7 @@ export const PDFUploader: React.FC<PDFUploaderProps> = ({
 
       {/* Error detail box — shown once here, parent should NOT re-show */}
       {status === "error" && errorMsg && (
-        <div className="mt-2 flex items-start gap-2 p-3 bg-red-50 border border-red-200 rounded-xl text-xs text-red-700">
+        <div className="mt-2 flex items-start gap-2 p-3 bg-red-50 dark:bg-red-950 border border-red-200 dark:border-red-800 rounded-xl text-xs text-red-700 dark:text-red-400">
           <AlertCircle className="h-4 w-4 mt-0.5 shrink-0 text-red-500" />
           <div className="flex-1">
             <span>{errorMsg}</span>
