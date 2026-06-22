@@ -1,4 +1,5 @@
 import { useNavigate } from "react-router-dom";
+import { motion } from "framer-motion";
 import { useTheme } from "next-themes";
 import { useState, useEffect, useRef } from "react";
 import { APIKeyChecker } from "@/components/APIKeyChecker";
@@ -170,10 +171,15 @@ const Dashboard = () => {
           <div className="lg:col-span-3">
             <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-5">
               {aiTools.map((tool) => (
-                <button
+                <motion.button
                   key={tool.path}
                   onClick={() => navigate(tool.path)}
-                  className={`group text-left bg-white dark:bg-gray-900 rounded-2xl border border-slate-200 dark:border-gray-700 p-5 shadow-sm hover:shadow-lg ${tool.glow} hover:-translate-y-1 transition-all duration-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-400`}
+                  initial={{ opacity: 0, y: 24 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ duration: 0.4, delay: aiTools.indexOf(tool) * 0.06 }}
+                  whileHover={{ y: -6, scale: 1.02, boxShadow: "0 20px 40px rgba(0,0,0,0.12)" }}
+                  whileTap={{ scale: 0.97 }}
+                  className={`group text-left bg-white dark:bg-gray-900 rounded-2xl border border-slate-200 dark:border-gray-700 p-5 shadow-sm focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-400`}
                 >
                   <div className={`w-11 h-11 rounded-xl bg-gradient-to-br ${tool.gradient} flex items-center justify-center mb-4 shadow-md`}>
                     <tool.icon className="h-5 w-5 text-white" />
@@ -182,7 +188,7 @@ const Dashboard = () => {
                     {tool.title}
                   </h3>
                   <p className="text-slate-500 dark:text-slate-400 text-sm leading-relaxed">{tool.description}</p>
-                </button>
+                </motion.button>
               ))}
             </div>
           </div>

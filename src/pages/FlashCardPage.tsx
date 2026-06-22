@@ -7,6 +7,7 @@
  * • Filters PDF cover/header junk before generation
  */
 import React, { useState, useEffect, useCallback } from "react";
+import { motion, AnimatePresence } from "framer-motion";
 import { useNavigate } from "react-router-dom";
 import { Card, CardContent, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -412,28 +413,46 @@ const FlashCardPage: React.FC = () => {
               </CardHeader>
 
               <CardContent className="flex-grow flex items-center justify-center p-6">
-                <div className="w-full max-w-lg mx-auto" style={{ perspective: "1200px" }}>
-                  <div onClick={() => setIsFlipped(f => !f)}
-                    style={{
-                      transformStyle: "preserve-3d",
-                      transition: "transform 0.55s cubic-bezier(0.68,-0.55,0.27,1.55)",
-                      transform: isFlipped ? "rotateY(180deg)" : "rotateY(0deg)",
-                      position: "relative", height: "200px", cursor: "pointer",
-                    }}>
-                    {/* Front */}
-                    <div style={{ backfaceVisibility: "hidden", position: "absolute", inset: 0 }}
-                      className="bg-white dark:bg-gray-800 border-2 border-indigo-100 dark:border-gray-700 rounded-2xl shadow-md p-6 flex flex-col items-center justify-center text-center gap-3">
-                      <span className="text-xs font-bold uppercase tracking-widest text-indigo-400 dark:text-indigo-500">Question</span>
-                      <p className="text-lg font-semibold text-gray-800 dark:text-gray-100 leading-snug">{cards[index].question}</p>
-                      <span className="text-xs text-gray-400 dark:text-gray-500 mt-2">Click or press Space to reveal</span>
-                    </div>
-                    {/* Back */}
-                    <div style={{ backfaceVisibility: "hidden", transform: "rotateY(180deg)", position: "absolute", inset: 0 }}
-                      className="bg-gradient-to-br from-indigo-500 to-purple-600 rounded-2xl shadow-md p-6 flex flex-col items-center justify-center text-center gap-3">
-                      <span className="text-xs font-bold uppercase tracking-widest text-indigo-200">Answer</span>
-                      <p className="text-base font-medium text-white leading-relaxed">{cards[index].answer}</p>
-                    </div>
-                  </div>
+                <div className="w-full max-w-lg mx-auto" style={{ perspective: "1400px" }}>
+                  <AnimatePresence mode="wait" initial={false}>
+                    {!isFlipped ? (
+                      <motion.div
+                        key={`front-${index}`}
+                        onClick={() => setIsFlipped(true)}
+                        initial={{ rotateY: -90, opacity: 0, scale: 0.95 }}
+                        animate={{ rotateY: 0, opacity: 1, scale: 1 }}
+                        exit={{ rotateY: 90, opacity: 0, scale: 0.95 }}
+                        transition={{ duration: 0.35, ease: [0.23, 1, 0.32, 1] }}
+                        style={{ transformStyle: "preserve-3d", cursor: "pointer", height: "200px" }}
+                        className="bg-white dark:bg-gray-800 border-2 border-indigo-100 dark:border-gray-700 rounded-2xl shadow-xl p-6 flex flex-col items-center justify-center text-center gap-3"
+                        whileHover={{ scale: 1.02, boxShadow: "0 20px 60px rgba(99,102,241,0.25)" }}
+                      >
+                        <span className="text-xs font-bold uppercase tracking-widest text-indigo-400 dark:text-indigo-500">❓ Question</span>
+                        <p className="text-lg font-semibold text-gray-800 dark:text-gray-100 leading-snug">{cards[index].question}</p>
+                        <motion.span
+                          animate={{ opacity: [0.4, 1, 0.4] }}
+                          transition={{ repeat: Infinity, duration: 2 }}
+                          className="text-xs text-gray-400 dark:text-gray-500 mt-2">
+                          Click or press Space to reveal
+                        </motion.span>
+                      </motion.div>
+                    ) : (
+                      <motion.div
+                        key={`back-${index}`}
+                        onClick={() => setIsFlipped(false)}
+                        initial={{ rotateY: 90, opacity: 0, scale: 0.95 }}
+                        animate={{ rotateY: 0, opacity: 1, scale: 1 }}
+                        exit={{ rotateY: -90, opacity: 0, scale: 0.95 }}
+                        transition={{ duration: 0.35, ease: [0.23, 1, 0.32, 1] }}
+                        style={{ transformStyle: "preserve-3d", cursor: "pointer", height: "200px" }}
+                        className="bg-gradient-to-br from-indigo-500 via-purple-600 to-pink-600 rounded-2xl shadow-xl p-6 flex flex-col items-center justify-center text-center gap-3"
+                        whileHover={{ scale: 1.02, boxShadow: "0 20px 60px rgba(139,92,246,0.4)" }}
+                      >
+                        <span className="text-xs font-bold uppercase tracking-widest text-indigo-200">✅ Answer</span>
+                        <p className="text-base font-medium text-white leading-relaxed">{cards[index].answer}</p>
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
                 </div>
               </CardContent>
 

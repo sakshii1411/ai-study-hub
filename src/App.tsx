@@ -2,10 +2,11 @@ import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Routes, Route } from "react-router-dom";
+import { BrowserRouter, Routes, Route, useLocation } from "react-router-dom";
+import { AnimatePresence } from "framer-motion";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
+import { PageTransition } from "@/components/PageTransition";
 
-// Import all pages
 import NotFound from "./pages/NotFound";
 import Dashboard from "./pages/Dashboard";
 import CreatePlan from "./pages/CreatePlan";
@@ -18,9 +19,35 @@ import AITutorPage from "./pages/AITutorPage";
 import FlashCardPage from "./pages/FlashCardPage";
 import MCQPage from "./pages/MCQPage";
 import SubjectivePage from "./pages/SubjectivePage";
-// The auth pages (Index, Login, SignUp) are no longer imported
 
 const queryClient = new QueryClient();
+
+const PT = ({ children }: { children: React.ReactNode }) => (
+  <PageTransition>{children}</PageTransition>
+);
+
+const AnimatedRoutes = () => {
+  const location = useLocation();
+  return (
+    <AnimatePresence mode="wait">
+      <Routes location={location} key={location.pathname}>
+        <Route path="/"               element={<PT><Dashboard /></PT>} />
+        <Route path="/dashboard"      element={<PT><Dashboard /></PT>} />
+        <Route path="/notes-maker"    element={<PT><NotesMaker /></PT>} />
+        <Route path="/qna-component"  element={<PT><QnAComponent /></PT>} />
+        <Route path="/theory-memorizer" element={<PT><TheoryMemorizer /></PT>} />
+        <Route path="/flashcard"      element={<PT><FlashCardPage /></PT>} />
+        <Route path="/mcq"            element={<PT><MCQPage /></PT>} />
+        <Route path="/subjective"     element={<PT><SubjectivePage /></PT>} />
+        <Route path="/image-generator" element={<PT><ImageGenerator /></PT>} />
+        <Route path="/ai-tutor"       element={<PT><AITutorPage /></PT>} />
+        <Route path="/create-plan"    element={<PT><CreatePlan /></PT>} />
+        <Route path="/plan/:planId"   element={<PT><PlanDetail /></PT>} />
+        <Route path="*"               element={<PT><NotFound /></PT>} />
+      </Routes>
+    </AnimatePresence>
+  );
+};
 
 const App = () => (
   <QueryClientProvider client={queryClient}>
@@ -29,30 +56,7 @@ const App = () => (
       <Sonner />
       <BrowserRouter>
         <ErrorBoundary>
-          <Routes>
-          {/* --- Auth Routes Removed --- */}
-          
-          {/* Main App Routes */}
-          <Route path="/" element={<Dashboard />} /> {/* Set Dashboard as the root */}
-          <Route path="/dashboard" element={<Dashboard />} />
-          
-          {/* Top-Level Tool Routes */}
-          <Route path="/notes-maker" element={<NotesMaker />} />
-          <Route path="/qna-component" element={<QnAComponent />} />
-          <Route path="/theory-memorizer" element={<TheoryMemorizer />} />
-          <Route path="/flashcard" element={<FlashCardPage />} />
-          <Route path="/mcq" element={<MCQPage />} />
-          <Route path="/subjective" element={<SubjectivePage />} />
-          <Route path="/image-generator" element={<ImageGenerator />} />
-          <Route path="/ai-tutor" element={<AITutorPage />} /> 
-
-          {/* Plan-based routes (kept for now) */}
-          <Route path="/create-plan" element={<CreatePlan />} />
-          <Route path="/plan/:planId" element={<PlanDetail />} />
-
-          {/* Catch-all 404 Route */}
-          <Route path="*" element={<NotFound />} />
-        </Routes>
+          <AnimatedRoutes />
         </ErrorBoundary>
       </BrowserRouter>
     </TooltipProvider>

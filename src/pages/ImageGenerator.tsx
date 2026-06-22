@@ -581,15 +581,31 @@ const ImageGenerator = () => {
   const downloadPNG = async () => {
     if (!outputRef.current || !htmlContent) return;
     try {
+      // Try html2canvas first (installed via package.json)
       const { default: html2canvas } = await import("html2canvas");
-      const canvas = await html2canvas(outputRef.current, { scale:2, backgroundColor:"#0f0c29", useCORS:true, logging:false });
+      const canvas = await html2canvas(outputRef.current, {
+        scale: 2, backgroundColor: "#0f0c29", useCORS: true, logging: false,
+        allowTaint: true,
+      });
       const a = document.createElement("a");
       a.href = canvas.toDataURL("image/png");
       a.download = `diagram-${diagramType}.png`;
       a.click();
-      toast.success("PNG downloaded!");
+      toast.success("PNG downloaded! 🖼️");
     } catch {
-      toast.error("PNG export failed — try right-clicking and saving the image.");
+      // Fallback: open in new tab so user can right-click → save
+      const fullPage = `<!DOCTYPE html><html><head><meta charset="utf-8">
+        <style>*{margin:0;padding:0;box-sizing:border-box;}body{background:#0f0c29;}</style>
+        </head><body>${htmlContent}</body></html>`;
+      const blob = new Blob([fullPage], { type: "text/html" });
+      const url = URL.createObjectURL(blob);
+      const w = window.open(url, "_blank");
+      if (w) {
+        toast.info("Opened in new tab — right-click the diagram to save as image, or use browser Print → Save as PDF.");
+        setTimeout(() => URL.revokeObjectURL(url), 30000);
+      } else {
+        toast.error("Popup blocked — please allow popups for this site.");
+      }
     }
   };
 
