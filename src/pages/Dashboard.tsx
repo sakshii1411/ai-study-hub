@@ -1,5 +1,4 @@
 import { useNavigate } from "react-router-dom";
-import { motion } from "framer-motion";
 import { useTheme } from "next-themes";
 import { useState, useEffect, useRef } from "react";
 import { APIKeyChecker } from "@/components/APIKeyChecker";
@@ -47,21 +46,23 @@ function Pomodoro() {
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   useEffect(() => {
-    if (running) {
-      intervalRef.current = setInterval(() => {
-        setRemaining(r => {
-          if (r <= 1) {
-            clearInterval(intervalRef.current!);
-            setRunning(false);
-            return 0;
-          }
-          return r - 1;
-        });
-      }, 1000);
-    } else {
-      if (intervalRef.current) clearInterval(intervalRef.current);
+    if (!running) {
+      if (intervalRef.current) { clearInterval(intervalRef.current); intervalRef.current = null; }
+      return;
     }
-    return () => { if (intervalRef.current) clearInterval(intervalRef.current); };
+    if (intervalRef.current) clearInterval(intervalRef.current);
+    intervalRef.current = setInterval(() => {
+      setRemaining(r => {
+        if (r <= 1) {
+          clearInterval(intervalRef.current!);
+          intervalRef.current = null;
+          setRunning(false);
+          return 0;
+        }
+        return r - 1;
+      });
+    }, 1000);
+    return () => { if (intervalRef.current) { clearInterval(intervalRef.current); intervalRef.current = null; } };
   }, [running]);
 
   const selectPreset = (i: number) => {
@@ -171,15 +172,11 @@ const Dashboard = () => {
           <div className="lg:col-span-3">
             <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-5">
               {aiTools.map((tool) => (
-                <motion.button
+                <button
                   key={tool.path}
                   onClick={() => navigate(tool.path)}
-                  initial={{ opacity: 0, y: 24 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ duration: 0.4, delay: aiTools.indexOf(tool) * 0.06 }}
-                  whileHover={{ y: -6, scale: 1.02, boxShadow: "0 20px 40px rgba(0,0,0,0.12)" }}
-                  whileTap={{ scale: 0.97 }}
-                  className={`group text-left bg-white dark:bg-gray-900 rounded-2xl border border-slate-200 dark:border-gray-700 p-5 shadow-sm focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-400`}
+                  style={{ animationDelay: `${aiTools.indexOf(tool) * 60}ms` }}
+                  className={`group text-left bg-white dark:bg-gray-900 rounded-2xl border border-slate-200 dark:border-gray-700 p-5 shadow-sm hover:shadow-xl hover:-translate-y-1.5 hover:scale-[1.02] active:scale-[0.98] transition-all duration-200 ease-out focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 opacity-0 animate-[fadeUp_0.4s_ease_forwards] ${tool.glow}`}
                 >
                   <div className={`w-11 h-11 rounded-xl bg-gradient-to-br ${tool.gradient} flex items-center justify-center mb-4 shadow-md`}>
                     <tool.icon className="h-5 w-5 text-white" />
@@ -188,7 +185,7 @@ const Dashboard = () => {
                     {tool.title}
                   </h3>
                   <p className="text-slate-500 dark:text-slate-400 text-sm leading-relaxed">{tool.description}</p>
-                </motion.button>
+                </button>
               ))}
             </div>
           </div>

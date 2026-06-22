@@ -40,72 +40,13 @@ const PAL = [
   { from:"#a855f7", to:"#9333ea", text:"#fff", shadow:"rgba(168,85,247,0.45)", border:"#c084fc" },
 ];
 
-// ── Global CSS injected once ──────────────────────────────────────────────────
-const GLOBAL_CSS = `
-<style>
-@keyframes fadeUp {
-  from { opacity:0; transform: translateY(24px) scale(0.94); }
-  to   { opacity:1; transform: translateY(0)    scale(1); }
-}
-@keyframes slideRight {
-  from { opacity:0; transform: translateX(-32px); }
-  to   { opacity:1; transform: translateX(0); }
-}
-@keyframes slideLeft {
-  from { opacity:0; transform: translateX(32px); }
-  to   { opacity:1; transform: translateX(0); }
-}
-@keyframes scaleIn {
-  from { opacity:0; transform: scale(0.5) rotate(-8deg); }
-  to   { opacity:1; transform: scale(1)   rotate(0deg); }
-}
-@keyframes float {
-  0%,100% { transform: translateY(0px) rotate(0deg); }
-  50%      { transform: translateY(-8px) rotate(1deg); }
-}
-@keyframes pulse3d {
-  0%,100% { box-shadow: 0 8px 32px var(--sh), 0 0 0 0 var(--sh); }
-  50%      { box-shadow: 0 16px 48px var(--sh), 0 0 0 8px transparent; }
-}
-@keyframes spinOrbit {
-  from { transform: rotate(0deg) translateX(var(--orbit-r)) rotate(0deg); }
-  to   { transform: rotate(360deg) translateX(var(--orbit-r)) rotate(-360deg); }
-}
-@keyframes drawLine {
-  from { clip-path: inset(0 100% 0 0); }
-  to   { clip-path: inset(0 0% 0 0); }
-}
-@keyframes popIn {
-  0%   { opacity:0; transform: scale(0) translateY(10px); }
-  70%  { transform: scale(1.08) translateY(-2px); }
-  100% { opacity:1; transform: scale(1) translateY(0); }
-}
-@keyframes shimmer {
-  0%   { background-position: -200% center; }
-  100% { background-position: 200% center; }
-}
-.node-3d {
-  transition: transform 0.3s ease, box-shadow 0.3s ease;
-  transform-style: preserve-3d;
-}
-.node-3d:hover {
-  transform: translateY(-6px) rotateX(4deg) scale(1.04) !important;
-}
-.connector-line {
-  animation: drawLine 0.8s ease forwards;
-}
-.diagram-scene {
-  perspective: 1200px;
-  perspective-origin: 50% 30%;
-}
-</style>`;
+// Diagram animations defined in index.css
 
 // ── Shared wrapper ────────────────────────────────────────────────────────────
 function wrap3D(content: string, minH = 520): string {
   return `<div style="font-family:'Segoe UI',system-ui,sans-serif;min-height:${minH}px;
     background:linear-gradient(135deg,#0f0c29,#302b63,#24243e);
     border-radius:20px;padding:32px;overflow:hidden;position:relative;">
-    ${GLOBAL_CSS}
     <!-- decorative bg orbs -->
     <div style="position:absolute;top:-80px;left:-80px;width:300px;height:300px;
       border-radius:50%;background:radial-gradient(circle,rgba(99,102,241,0.18),transparent 70%);pointer-events:none;"></div>
@@ -197,7 +138,7 @@ function makeMindMap(center: string, branches: {label:string;items?:string[]}[])
 
   // Center orb — floating animation
   html += `<div class="node-3d" style="position:absolute;z-index:10;
-    animation:float 4s ease-in-out infinite,scaleIn 0.6s 0.1s both;
+    animation:diag-float 4s ease-in-out infinite,scaleIn 0.6s 0.1s both;
     width:140px;height:140px;border-radius:50%;
     background:linear-gradient(135deg,#6366f1,#a855f7,#ec4899);
     box-shadow:0 0 60px rgba(139,92,246,0.7),0 20px 40px rgba(0,0,0,0.4),inset 0 1px 0 rgba(255,255,255,0.3);
@@ -251,7 +192,7 @@ function makeMindMap(center: string, branches: {label:string;items?:string[]}[])
 
     html += `<div class="node-3d" style="position:absolute;
       left:calc(${(bx/svgSize)*100}% - 70px);top:calc(${(by/svgSize)*100}% - 28px);
-      animation:scaleIn 0.5s ${delay}s both;z-index:5;
+      animation:diag-scaleIn 0.5s ${delay}s both;z-index:5;
       width:140px;min-height:56px;padding:10px 14px;
       background:linear-gradient(135deg,${p.from},${p.to});
       border-radius:16px;border:1px solid ${p.border};
@@ -268,7 +209,7 @@ function makeMindMap(center: string, branches: {label:string;items?:string[]}[])
       const itemDelay = (parseFloat(delay)+0.35+j*0.07).toFixed(2);
       html += `<div class="node-3d" style="position:absolute;
         left:calc(${(sx/svgSize)*100}% - 52px);top:calc(${(sy/svgSize)*100}% - 18px);
-        animation:popIn 0.4s ${itemDelay}s both;z-index:4;
+        animation:diag-popIn 0.4s ${itemDelay}s both;z-index:4;
         width:104px;padding:6px 10px;
         background:rgba(255,255,255,0.08);backdrop-filter:blur(8px);
         border-radius:10px;border:1px solid ${p.border};
@@ -317,7 +258,7 @@ function makeTimeline(events: {year:string;title:string;desc?:string}[]): string
 
       <!-- Center dot -->
       <div style="width:80px;flex-shrink:0;display:flex;justify-content:center;z-index:2;
-        animation:scaleIn 0.4s ${(parseFloat(delay)+0.1).toFixed(2)}s both;">
+        animation:diag-scaleIn 0.4s ${(parseFloat(delay)+0.1).toFixed(2)}s both;">
         <div style="width:44px;height:44px;border-radius:50%;
           background:linear-gradient(135deg,${p.from},${p.to});
           box-shadow:0 0 20px ${p.shadow},0 4px 12px rgba(0,0,0,0.4),inset 0 1px 0 rgba(255,255,255,0.3);
@@ -371,7 +312,7 @@ function makeCycle(steps: {label:string;desc?:string}[]): string {
 
   // Center hub
   html += `<div style="position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);z-index:10;
-    animation:float 4s ease-in-out infinite,scaleIn 0.5s 0.1s both;
+    animation:diag-float 4s ease-in-out infinite,scaleIn 0.5s 0.1s both;
     width:100px;height:100px;border-radius:50%;
     background:linear-gradient(135deg,#6366f1,#a855f7);
     box-shadow:0 0 50px rgba(139,92,246,0.6),0 12px 32px rgba(0,0,0,0.4),inset 0 1px 0 rgba(255,255,255,0.3);
@@ -388,7 +329,7 @@ function makeCycle(steps: {label:string;desc?:string}[]): string {
     const delay = (0.2+i*0.13).toFixed(2);
     html += `<div class="node-3d" style="position:absolute;
       left:${nx-72}px;top:${ny-36}px;width:144px;
-      animation:popIn 0.5s ${delay}s both;z-index:5;
+      animation:diag-popIn 0.5s ${delay}s both;z-index:5;
       padding:12px 14px;border-radius:16px;text-align:center;
       background:linear-gradient(135deg,${p.from},${p.to});
       box-shadow:0 8px 28px ${p.shadow},0 2px 8px rgba(0,0,0,0.35),inset 0 1px 0 rgba(255,255,255,0.2);
@@ -448,7 +389,7 @@ function makeHierarchy(root: string, children: {label:string;children?:string[]}
       <div style="display:flex;flex-direction:column;gap:6px;align-items:center;">
         ${(child.children??[]).slice(0,4).map((gc, j) => `
         <div class="node-3d" style="width:90%;padding:8px 10px;border-radius:10px;
-          animation:popIn 0.4s ${(parseFloat(delay)+0.2+j*0.06).toFixed(2)}s both;
+          animation:diag-popIn 0.4s ${(parseFloat(delay)+0.2+j*0.06).toFixed(2)}s both;
           background:rgba(255,255,255,0.08);backdrop-filter:blur(8px);
           border:1px solid ${p.border};text-align:center;">
           <span style="color:rgba(255,255,255,0.88);font-size:10px;font-weight:500;line-height:1.3;">${gc}</span>
@@ -496,7 +437,7 @@ function makeComparison(items: {name:string;points:string[]}[]): string {
         ${pts.map((pt, j) => `
         <div style="padding:12px 16px;border-bottom:1px solid rgba(255,255,255,0.06);
           display:flex;align-items:flex-start;gap:10px;
-          animation:slideRight 0.4s ${(parseFloat(delay)+0.15+j*0.06).toFixed(2)}s both;
+          animation:diag-slideRight 0.4s ${(parseFloat(delay)+0.15+j*0.06).toFixed(2)}s both;
           background:${j%2===0?"rgba(255,255,255,0.04)":"transparent"};">
           <div style="width:22px;height:22px;border-radius:50%;flex-shrink:0;
             background:linear-gradient(135deg,${p.from},${p.to});

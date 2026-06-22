@@ -1,53 +1,45 @@
+import { Suspense, lazy } from "react";
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Routes, Route, useLocation } from "react-router-dom";
-import { AnimatePresence } from "framer-motion";
+import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
-import { PageTransition } from "@/components/PageTransition";
 
-import NotFound from "./pages/NotFound";
+// ── Eager load only the Dashboard (first page users see) ────────────────────
 import Dashboard from "./pages/Dashboard";
-import CreatePlan from "./pages/CreatePlan";
-import PlanDetail from "./pages/PlanDetail";
-import NotesMaker from "./pages/NotesMaker";
-import TheoryMemorizer from "./pages/TheoryMemorizer";
-import ImageGenerator from "./pages/ImageGenerator";
-import QnAComponent from "./pages/QnAComponent";
-import AITutorPage from "./pages/AITutorPage";
-import FlashCardPage from "./pages/FlashCardPage";
-import MCQPage from "./pages/MCQPage";
-import SubjectivePage from "./pages/SubjectivePage";
 
-const queryClient = new QueryClient();
+// ── Lazy load everything else — only downloaded when first visited ───────────
+const NotesMaker      = lazy(() => import("./pages/NotesMaker"));
+const QnAComponent    = lazy(() => import("./pages/QnAComponent"));
+const TheoryMemorizer = lazy(() => import("./pages/TheoryMemorizer"));
+const FlashCardPage   = lazy(() => import("./pages/FlashCardPage"));
+const MCQPage         = lazy(() => import("./pages/MCQPage"));
+const SubjectivePage  = lazy(() => import("./pages/SubjectivePage"));
+const ImageGenerator  = lazy(() => import("./pages/ImageGenerator"));
+const AITutorPage     = lazy(() => import("./pages/AITutorPage"));
+const CreatePlan      = lazy(() => import("./pages/CreatePlan"));
+const PlanDetail      = lazy(() => import("./pages/PlanDetail"));
+const NotFound        = lazy(() => import("./pages/NotFound"));
 
-const PT = ({ children }: { children: React.ReactNode }) => (
-  <PageTransition>{children}</PageTransition>
+// ── Minimal loading fallback — no layout shift ───────────────────────────────
+const PageLoader = () => (
+  <div className="min-h-screen flex items-center justify-center bg-background dark:bg-gray-950">
+    <div className="flex flex-col items-center gap-3">
+      <div className="w-8 h-8 border-3 border-indigo-200 border-t-indigo-600 rounded-full animate-spin" />
+      <p className="text-sm text-muted-foreground">Loading…</p>
+    </div>
+  </div>
 );
 
-const AnimatedRoutes = () => {
-  const location = useLocation();
-  return (
-    <AnimatePresence mode="wait">
-      <Routes location={location} key={location.pathname}>
-        <Route path="/"               element={<PT><Dashboard /></PT>} />
-        <Route path="/dashboard"      element={<PT><Dashboard /></PT>} />
-        <Route path="/notes-maker"    element={<PT><NotesMaker /></PT>} />
-        <Route path="/qna-component"  element={<PT><QnAComponent /></PT>} />
-        <Route path="/theory-memorizer" element={<PT><TheoryMemorizer /></PT>} />
-        <Route path="/flashcard"      element={<PT><FlashCardPage /></PT>} />
-        <Route path="/mcq"            element={<PT><MCQPage /></PT>} />
-        <Route path="/subjective"     element={<PT><SubjectivePage /></PT>} />
-        <Route path="/image-generator" element={<PT><ImageGenerator /></PT>} />
-        <Route path="/ai-tutor"       element={<PT><AITutorPage /></PT>} />
-        <Route path="/create-plan"    element={<PT><CreatePlan /></PT>} />
-        <Route path="/plan/:planId"   element={<PT><PlanDetail /></PT>} />
-        <Route path="*"               element={<PT><NotFound /></PT>} />
-      </Routes>
-    </AnimatePresence>
-  );
-};
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      staleTime: 1000 * 60 * 5, // 5 min cache
+      retry: 1,
+    },
+  },
+});
 
 const App = () => (
   <QueryClientProvider client={queryClient}>
@@ -56,7 +48,23 @@ const App = () => (
       <Sonner />
       <BrowserRouter>
         <ErrorBoundary>
-          <AnimatedRoutes />
+          <Suspense fallback={<PageLoader />}>
+            <Routes>
+              <Route path="/"                element={<Dashboard />} />
+              <Route path="/dashboard"       element={<Dashboard />} />
+              <Route path="/notes-maker"     element={<NotesMaker />} />
+              <Route path="/qna-component"   element={<QnAComponent />} />
+              <Route path="/theory-memorizer" element={<TheoryMemorizer />} />
+              <Route path="/flashcard"       element={<FlashCardPage />} />
+              <Route path="/mcq"             element={<MCQPage />} />
+              <Route path="/subjective"      element={<SubjectivePage />} />
+              <Route path="/image-generator" element={<ImageGenerator />} />
+              <Route path="/ai-tutor"        element={<AITutorPage />} />
+              <Route path="/create-plan"     element={<CreatePlan />} />
+              <Route path="/plan/:planId"    element={<PlanDetail />} />
+              <Route path="*"               element={<NotFound />} />
+            </Routes>
+          </Suspense>
         </ErrorBoundary>
       </BrowserRouter>
     </TooltipProvider>
