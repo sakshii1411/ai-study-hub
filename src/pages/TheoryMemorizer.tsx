@@ -13,17 +13,12 @@ import {
   Volume2, BookOpen, FileText, Brain, ChevronRight, Download, ArrowLeft,
 } from "lucide-react";
 import { toast } from "sonner";
-import { clsx } from "clsx";
-import { twMerge } from "tailwind-merge";
+import { cn } from "@/lib/utils";
 import { cva, type VariantProps } from "class-variance-authority";
 import { callAI, callAIJson, callAIStream } from "@/lib/aiClient";
 import { MarkdownRenderer } from "@/components/MarkdownRenderer";
 import { extractFileText } from "@/lib/extractFileText";
 import RealMindMap from "@/components/RealMindMap";
-
-function cn(...inputs: (string | boolean | null | undefined)[]) {
-  return twMerge(clsx(inputs));
-}
 
 interface MindMapBranch { label: string; notes?: string; subBranches?: string[]; }
 interface MindMapData   { title: string; branches: MindMapBranch[]; }

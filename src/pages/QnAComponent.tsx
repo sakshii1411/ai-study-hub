@@ -37,6 +37,8 @@ const FORMAT_INSTRUCTIONS: Record<FormatType, string> = {
   "key points":           "Format: List ONLY the most critical points as a numbered list. Bold the key term in each. 5–8 points maximum.",
 };
 
+const QNA_HISTORY_KEY = "qna-chat-history";
+
 const QnAComponent: React.FC = () => {
   const navigate = useNavigate();
   const [materialMode, setMaterialMode] = useState<MaterialMode>("text");
@@ -44,7 +46,10 @@ const QnAComponent: React.FC = () => {
   const [extractedText, setExtractedText] = useState("");
   const [question, setQuestion] = useState("");
   const [format, setFormat] = useState<FormatType>("bullet points");
-  const [history, setHistory] = useState<ChatMessage[]>([]);
+  const [history, setHistory] = useState<ChatMessage[]>(() => {
+    try { return JSON.parse(localStorage.getItem(QNA_HISTORY_KEY) || "[]"); }
+    catch { return []; }
+  });
   const [streamingAnswer, setStreamingAnswer] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -57,6 +62,12 @@ const QnAComponent: React.FC = () => {
   useEffect(() => {
     chatBottomRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [history, streamingAnswer]);
+
+  // Persist last 20 messages
+  useEffect(() => {
+    try { localStorage.setItem(QNA_HISTORY_KEY, JSON.stringify(history.slice(-20))); }
+    catch { /* storage full */ }
+  }, [history]);
 
   const handleExtracted = useCallback((text: string, result: ExtractionResult) => {
     setExtractedText(text);
@@ -111,7 +122,7 @@ const QnAComponent: React.FC = () => {
     }
   }, [question, effectiveMaterial, format, materialMode, history]);
 
-  const clearHistory = () => { setHistory([]); setStreamingAnswer(""); setError(null); };
+  const clearHistory = () => { setHistory([]); setStreamingAnswer(""); setError(null); localStorage.removeItem(QNA_HISTORY_KEY); };
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-teal-50 via-white to-green-50 dark:from-gray-950 dark:via-gray-900 dark:to-teal-950/20">

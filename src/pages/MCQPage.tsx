@@ -211,7 +211,7 @@ const MCQPage: React.FC = () => {
                 <Lightbulb className="h-8 w-8 text-white" />
               </div>
               <h1 className="text-3xl font-bold dark:text-white">MCQ Generator</h1>
-              <p className="text-muted-foreground mt-1 text-sm">Keys 1–4 to select · Enter to check · → to continue</p>
+              <p className="text-muted-foreground mt-1 text-sm">Tap an option · or use keys 1–4 · Enter to check</p>
             </div>
             {error && (
               <div className="flex items-start gap-2 p-3 bg-destructive/10 text-destructive border border-destructive/30 rounded-lg text-sm">
@@ -305,14 +305,16 @@ const MCQPage: React.FC = () => {
                 }
                 return (
                   <button key={i} onClick={() => quizState === "answering" && setSelected(option)}
-                    disabled={quizState === "feedback"} className={optStyle}>
-                    <span className={`shrink-0 w-6 h-6 rounded-full border-2 flex items-center justify-center text-xs font-bold ${isSelected && quizState === "answering" ? "border-primary bg-primary text-white" : "border-current opacity-50"}`}>{i + 1}</span>
-                    {option}
+                    disabled={quizState === "feedback"} className={optStyle}
+                    style={{ minHeight: "52px" }}>
+                    <span className={`shrink-0 w-7 h-7 rounded-full border-2 flex items-center justify-center text-xs font-bold ${isSelected && quizState === "answering" ? "border-primary bg-primary text-white" : "border-current opacity-50"}`}>{i + 1}</span>
+                    <span className="text-sm leading-snug">{option}</span>
                   </button>
                 );
               })}
             </div>
-            <p className="text-xs text-center text-muted-foreground mt-4">Press 1–{shuffledOptions.length} to select · Enter to check</p>
+            <p className="text-xs text-center text-muted-foreground mt-4 hidden sm:block">Keys 1–{shuffledOptions.length} to select · Enter to check</p>
+            <p className="text-xs text-center text-muted-foreground mt-4 sm:hidden">Tap an option then Check</p>
           </>
         )}
 

@@ -1,0 +1,21 @@
+{
+  "name": "AI Study Hub",
+  "short_name": "Study Hub",
+  "description": "Your all-in-one AI-powered study companion — notes, flashcards, MCQs, diagrams and more.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#0f172a",
+  "theme_color": "#6366f1",
+  "orientation": "portrait-primary",
+  "icons": [
+    { "src": "/icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any maskable" },
+    { "src": "/icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any maskable" }
+  ],
+  "categories": ["education", "productivity"],
+  "shortcuts": [
+    { "name": "Flashcards",   "url": "/flashcard",      "description": "Study with spaced repetition" },
+    { "name": "Notes Maker",  "url": "/notes-maker",    "description": "Generate study notes from PDF" },
+    { "name": "MCQ Quiz",     "url": "/mcq",            "description": "Practice multiple-choice questions" },
+    { "name": "Theory Visual","url": "/image-generator","description": "Generate 3D diagrams" }
+  ]
+}

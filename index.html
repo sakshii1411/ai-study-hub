@@ -3,20 +3,32 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>AI Study Planner - Plan Your Exam Success</title>
-    <meta name="description" content="Create personalized AI-powered study plans for your exams. Track progress and achieve better results with intelligent planning." />
-    <meta name="author" content="AI Study Planner" />
+    <title>AI Study Hub — Your All-in-One AI Study Companion</title>
+    <meta name="description" content="Upload notes, generate summaries, flashcards, MCQs, diagrams, and more. Powered by Groq, OpenRouter, and NVIDIA." />
+    <meta name="author" content="AI Study Hub" />
+    <meta name="theme-color" content="#6366f1" />
 
-    <meta property="og:title" content="AI Study Planner - Plan Your Exam Success" />
-    <meta property="og:description" content="Create personalized AI-powered study plans for your exams. Track progress and achieve better results with intelligent planning." />
+    <!-- Open Graph -->
+    <meta property="og:title" content="AI Study Hub — Your All-in-One AI Study Companion" />
+    <meta property="og:description" content="Upload PDFs, generate notes, flashcards, MCQs, visual diagrams and more. Answers grounded strictly in your material." />
     <meta property="og:type" content="website" />
-    <meta property="og:image" content="https://lovable.dev/opengraph-image-p98pqg.png" />
+    <meta property="og:url" content="https://ai-study-hub-psi.vercel.app" />
+    <meta property="og:image" content="https://ai-study-hub-psi.vercel.app/og-image.png" />
 
+    <!-- Twitter Card -->
     <meta name="twitter:card" content="summary_large_image" />
-    <meta name="twitter:site" content="@lovable_dev" />
-    <meta name="twitter:image" content="https://lovable.dev/opengraph-image-p98pqg.png" />
-  </head>
+    <meta name="twitter:title" content="AI Study Hub" />
+    <meta name="twitter:description" content="AI-powered study tools — notes, flashcards, MCQs, diagrams and more." />
+    <meta name="twitter:image" content="https://ai-study-hub-psi.vercel.app/og-image.png" />
 
+    <!-- PWA -->
+    <link rel="manifest" href="/manifest.json" />
+    <link rel="apple-touch-icon" href="/icons/icon-192.png" />
+
+    <!-- Preconnect to AI providers for faster first request -->
+    <link rel="preconnect" href="https://api.groq.com" />
+    <link rel="preconnect" href="https://openrouter.ai" />
+  </head>
   <body>
     <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>
