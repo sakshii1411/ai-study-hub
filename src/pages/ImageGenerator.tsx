@@ -10,7 +10,7 @@
  *  • Glass-morphism panels with backdrop-filter
  *  • Rich gradients, glows, and shadows
  */
-import React, { useState, useCallback, useRef } from "react";
+import React, { useState, useCallback, useRef, memo } from "react";
 import { useNavigate } from "react-router-dom";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -116,7 +116,7 @@ function makeFlowchart(nodes: {id:string;label:string;type?:string}[], edges: {f
             <div style="width:0;height:0;border-left:6px solid transparent;border-right:6px solid transparent;
               border-top:10px solid ${p.to};margin-top:-1px;"></div>
             ${nextEdge.label ? `<span style="position:absolute;top:40%;background:rgba(255,255,255,0.12);
-              backdrop-filter:blur(4px);color:white;font-size:9px;font-weight:700;padding:2px 6px;
+              color:white;font-size:9px;font-weight:700;padding:2px 6px;
               border-radius:6px;white-space:nowrap;">${nextEdge.label}</span>` : ""}
           </div>`;
         }
@@ -211,7 +211,7 @@ function makeMindMap(center: string, branches: {label:string;items?:string[]}[])
         left:calc(${(sx/svgSize)*100}% - 52px);top:calc(${(sy/svgSize)*100}% - 18px);
         animation:diag-popIn 0.4s ${itemDelay}s both;z-index:4;
         width:104px;padding:6px 10px;
-        background:rgba(255,255,255,0.08);backdrop-filter:blur(8px);
+        background:rgba(30,30,60,0.7);
         border-radius:10px;border:1px solid ${p.border};
         display:flex;align-items:center;justify-content:center;text-align:center;">
         <span style="color:white;font-size:10px;font-weight:500;opacity:0.9;line-height:1.3;">${item}</span>
@@ -243,7 +243,7 @@ function makeTimeline(events: {year:string;title:string;desc?:string}[]): string
       <!-- Card -->
       <div class="node-3d" style="width:calc(50% - 40px);
         animation:${anim} 0.55s ${delay}s both;
-        background:rgba(255,255,255,0.06);backdrop-filter:blur(12px);
+        background:rgba(30,30,60,0.85);
         border-radius:18px;padding:18px 20px;
         border:1px solid ${p.border};
         box-shadow:0 8px 32px ${p.shadow},0 2px 8px rgba(0,0,0,0.3),inset 0 1px 0 rgba(255,255,255,0.08);">
@@ -353,7 +353,7 @@ function makeHierarchy(root: string, children: {label:string;children?:string[]}
 
   let html = `<div style="text-align:center;">
   <!-- Root -->
-  <div style="display:inline-block;animation:fadeUp 0.5s 0.1s both;margin-bottom:8px;">
+  <div style="display:inline-block;animation:fadeUp 0.5s 0.10s both;margin-bottom:8px;">
     <div class="node-3d" style="display:inline-flex;align-items:center;justify-content:center;
       padding:16px 36px;border-radius:50px;
       background:linear-gradient(135deg,#6366f1,#a855f7,#ec4899);
@@ -390,7 +390,7 @@ function makeHierarchy(root: string, children: {label:string;children?:string[]}
         ${(child.children??[]).slice(0,4).map((gc, j) => `
         <div class="node-3d" style="width:90%;padding:8px 10px;border-radius:10px;
           animation:diag-popIn 0.4s ${(parseFloat(delay)+0.2+j*0.06).toFixed(2)}s both;
-          background:rgba(255,255,255,0.08);backdrop-filter:blur(8px);
+          background:rgba(30,30,60,0.7);
           border:1px solid ${p.border};text-align:center;">
           <span style="color:rgba(255,255,255,0.88);font-size:10px;font-weight:500;line-height:1.3;">${gc}</span>
         </div>`).join("")}
@@ -433,7 +433,7 @@ function makeComparison(items: {name:string;points:string[]}[]): string {
         <p style="color:white;font-size:15px;font-weight:800;margin:0;">${item.name}</p>
       </div>
       <!-- Points -->
-      <div style="background:rgba(255,255,255,0.05);backdrop-filter:blur(10px);">
+      <div style="background:rgba(20,20,50,0.6);">
         ${pts.map((pt, j) => `
         <div style="padding:12px 16px;border-bottom:1px solid rgba(255,255,255,0.06);
           display:flex;align-items:flex-start;gap:10px;
@@ -487,6 +487,14 @@ const MAKERS: Record<string,(d:any)=>string> = {
 };
 
 // ── Main component ─────────────────────────────────────────────────────────────
+// Memoized so the expensive innerHTML parse only runs when html changes
+const DiagramOutput = memo(
+  React.forwardRef<HTMLDivElement, { html: string }>(({ html }, ref) => (
+    <div ref={ref} dangerouslySetInnerHTML={{ __html: html }} />
+  ))
+);
+DiagramOutput.displayName = "DiagramOutput";
+
 const ImageGenerator = () => {
   const navigate = useNavigate();
   const [theory, setTheory] = useState("");
@@ -636,7 +644,7 @@ const ImageGenerator = () => {
                 </div>
               )}
               {htmlContent&&!isLoading&&(
-                <div ref={outputRef} dangerouslySetInnerHTML={{__html: htmlContent}}/>
+                <DiagramOutput ref={outputRef} html={htmlContent}/>
               )}
               {!htmlContent&&!isLoading&&(
                 <div className="flex flex-col items-center justify-center h-full py-20 gap-3 text-center">

@@ -225,12 +225,11 @@
 }
 /* 3D diagram node styles */
 .node-3d {
-  transition: transform 0.25s ease, box-shadow 0.25s ease;
-  transform-style: preserve-3d;
-  will-change: transform;
+  transition: transform 0.22s ease-out, box-shadow 0.22s ease-out;
 }
 .node-3d:hover {
-  transform: translateY(-6px) rotateX(4deg) scale(1.04) !important;
+  transform: translateY(-5px) scale(1.03) !important;
+  will-change: transform;
 }
 .connector-line {
   animation: diag-drawLine 0.8s ease forwards;
